@@ -199,16 +199,19 @@ Detailed step-by-step guides are in the [`docs/`](docs/) directory:
 
 ```
 picoclaw-dotfiles/                          57 files
-|-- assets/                             Device photos and screenshots (4 files)
+|-- assets/                             Device photos and screenshots
+|   |-- README.md                       Asset index and guidelines
 |   |-- neofetch.jpg                    Terminal specs output
 |   |-- photo-back.jpg                  Back of the phone (108 MP camera)
 |   |-- photo-front.jpg                 Front of the phone (Termux running)
 |   +-- screenshot-termux.png           Termux screenshot (PicoClaw status)
-|-- config/                             Config templates, no secrets (3 files)
+|-- config/                             Config templates, no secrets
+|   |-- README.md                       Template usage guide
 |   |-- .gitignore                      Only allows template files
 |   |-- config.template.json            config.json with <PLACEHOLDER> values
 |   +-- security.template.yml           .security.yml with <PLACEHOLDER> values
-|-- docs/                               Step-by-step guides (9 files)
+|-- docs/                               Step-by-step guides
+|   |-- README.md                       Documentation index
 |   |-- 01-hardware-setup.md            Device requirements, Termux, SSH
 |   |-- 02-picoclaw-installation.md     Binary, TLS fix, initial config
 |   |-- 03-providers-setup.md           Azure, Ollama, Groq, Antigravity

@@ -1,6 +1,7 @@
-# Allow only template files in this directory
+# Allow only template files and README in this directory
 *
 !.gitignore
+!README.md
 !*.template.json
 !*.template.yml
 !*.template.yaml
