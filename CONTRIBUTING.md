@@ -28,3 +28,11 @@ Be respectful and constructive. This is a small project maintained by one person
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  <a href="README.md">📋 Back to README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="docs/01-hardware-setup.md">📖 Documentation</a>
+</p>

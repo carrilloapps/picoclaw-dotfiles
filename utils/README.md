@@ -485,3 +485,11 @@ Reference copy of the agent persona definition. The live version on the device i
 - **ADB self-bridge**: All UI automation scripts depend on the ADB self-bridge (`localhost:5555`). If it stops working, run `~/bin/adb-enable.sh`.
 - **PIN security**: `ensure-unlocked.sh` reads the device PIN from `~/.device_pin`. This file should have mode `600` and is never committed.
 - **Knowledge base**: The agent writes persistent context to `~/.picoclaw/workspace/knowledge/` (created by `scripts/setup_knowledge.py`). This directory is not tracked in `utils/` — it is created directly on the device. AGENT.md includes instructions that tell the LLM to write `.md` files there when the user says "guarda el contexto".
+
+---
+
+<p align="center">
+  <a href="../README.md">📋 Back to README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../docs/01-hardware-setup.md">📖 Documentation</a>
+</p>

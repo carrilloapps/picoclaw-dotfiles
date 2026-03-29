@@ -198,3 +198,11 @@ For detailed guides, see [`docs/`](docs/):
 6. [Resilience](docs/06-resilience.md) -- Boot, watchdog, verification
 7. [Skills and MCP](docs/07-skills-and-mcp.md) -- Skills, 4 MCP servers
 8. [Advanced Features](docs/08-advanced-features.md) -- Scraping, knowledge base, cron
+
+---
+
+<p align="center">
+  <a href="README.md">📋 Back to README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="docs/01-hardware-setup.md">📖 Documentation</a>
+</p>

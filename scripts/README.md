@@ -363,3 +363,11 @@ Or in Python:
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 ```
+
+---
+
+<p align="center">
+  <a href="../README.md">📋 Back to README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../docs/01-hardware-setup.md">📖 Documentation</a>
+</p>

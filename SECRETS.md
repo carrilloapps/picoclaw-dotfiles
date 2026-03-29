@@ -342,3 +342,11 @@ The following are excluded via `.gitignore`:
 | `.picoclaw_keys` | API keys for device scripts (Azure, Groq) |
 | `.device_pin` | Device screen unlock PIN |
 | `watchdog.log` | May contain service restart metadata |
+
+---
+
+<p align="center">
+  <a href="README.md">📋 Back to README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="docs/01-hardware-setup.md">📖 Documentation</a>
+</p>
