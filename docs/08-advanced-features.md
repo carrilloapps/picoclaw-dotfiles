@@ -294,3 +294,13 @@ These features exist in PicoClaw or as supported integrations but are not curren
 | Discord channel | Chat via Discord bot | Configure `channels.discord` + token |
 | Brave Search MCP | Web search via Brave API | Add Brave API key (package installed) |
 | Slack / Matrix | Additional chat channels | Configure in config.json + tokens |
+
+---
+
+<p align="center">
+  <a href="07-skills-and-mcp.md">← Skills & MCP</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="09-remote-devices.md">Remote Devices →</a>
+</p>

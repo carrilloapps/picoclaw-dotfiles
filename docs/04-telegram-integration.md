@@ -200,6 +200,10 @@ The device's WhatsApp client can be controlled indirectly via UI automation (`ui
 
 ---
 
-## Next Steps
-
-Proceed to [05 - Device Control](05-device-control.md) to set up ADB self-bridge and UI automation.
+<p align="center">
+  <a href="03-providers-setup.md">← Providers Setup</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="05-device-control.md">Device Control →</a>
+</p>

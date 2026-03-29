@@ -292,6 +292,10 @@ The `utils/AGENT.md` in the repo is a **static reference copy**. The real one on
 
 ---
 
-## Next Steps
-
-With PicoClaw installed and verified, proceed to [03 - Providers Setup](03-providers-setup.md) to configure your LLM providers.
+<p align="center">
+  <a href="01-hardware-setup.md">← Hardware Setup</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="03-providers-setup.md">Providers Setup →</a>
+</p>

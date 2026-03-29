@@ -211,4 +211,10 @@ Supported chipsets: Realtek RTL8152/8153, ASIX AX88179, CDC-Ethernet.
 
 ---
 
-← [08 — Advanced Features](08-advanced-features.md)
+<p align="center">
+  <a href="08-advanced-features.md">← Advanced Features</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  
+</p>

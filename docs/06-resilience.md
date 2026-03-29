@@ -213,6 +213,10 @@ The test exits with a clear `ALL CHECKS PASSED` or `SOME CHECKS FAILED` summary.
 
 ---
 
-## Next Steps
-
-Proceed to [07 - Skills and MCP](07-skills-and-mcp.md) to explore extensibility.
+<p align="center">
+  <a href="05-device-control.md">← Device Control</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="07-skills-and-mcp.md">Skills & MCP →</a>
+</p>

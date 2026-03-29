@@ -313,6 +313,10 @@ The script uses hot-reload -- no gateway restart needed.
 
 ---
 
-## Next Steps
-
-With providers configured, proceed to [04 - Telegram Integration](04-telegram-integration.md) to set up messaging.
+<p align="center">
+  <a href="02-picoclaw-installation.md">← PicoClaw Installation</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="04-telegram-integration.md">Telegram Integration →</a>
+</p>

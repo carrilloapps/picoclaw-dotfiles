@@ -246,6 +246,10 @@ Remote management is completely optional — the phone runs autonomously after `
 
 ---
 
-## Next Steps
-
-→ [02 — PicoClaw Installation](02-picoclaw-installation.md)
+<p align="center">
+  
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="02-picoclaw-installation.md">PicoClaw Installation →</a>
+</p>

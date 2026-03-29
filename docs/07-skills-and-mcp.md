@@ -201,6 +201,10 @@ These are PicoClaw's built-in tools, configured in `config.json`:
 
 ---
 
-## Next Steps
-
-Proceed to [08 - Advanced Features](08-advanced-features.md) for web scraping, knowledge base, and more.
+<p align="center">
+  <a href="06-resilience.md">← Resilience</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="08-advanced-features.md">Advanced Features →</a>
+</p>

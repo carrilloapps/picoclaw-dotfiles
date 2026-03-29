@@ -298,6 +298,10 @@ Files are saved to `~/media/` with timestamps. The back camera supports up to 10
 
 ---
 
-## Next Steps
-
-Proceed to [06 - Resilience](06-resilience.md) to set up automatic recovery and monitoring.
+<p align="center">
+  <a href="04-telegram-integration.md">← Telegram Integration</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">📋 README</a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="06-resilience.md">Resilience →</a>
+</p>
