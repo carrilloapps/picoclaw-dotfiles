@@ -17,16 +17,32 @@
 | **USB hub** | USB OTG | Connect multiple devices simultaneously |
 
 ```mermaid
-graph LR
-    PC["PicoClaw Phone<br/>(USB OTG host)"]
+graph TB
+    USER["User\n(Telegram)"] -->|"natural language command"| PC
 
-    PC -->|"ADB"| AND["Android<br/>Phone"]
-    PC -->|"USB Tethering"| IPH["iPhone"]
-    PC -->|"SSH"| RPI["Raspberry Pi"]
-    PC -->|"Mount"| USB["USB Drive"]
-    PC -->|"Network"| ETH["USB Ethernet"]
+    subgraph "PicoClaw Phone (USB OTG host)"
+        PC["PicoClaw Gateway\n+ remote-device.sh"]
+    end
+
+    subgraph "USB OTG Connected Devices"
+        AND["Android Phone\n(ADB — full control)"]
+        IPH["iPhone\n(USB Tethering)"]
+        RPI["Raspberry Pi\n(SSH via usb0)"]
+        USB["USB Flash Drive\n(mount + read/write)"]
+        ETH["USB Ethernet\n(wired network)"]
+        HUB["USB Hub\n(multiple devices)"]
+    end
+
+    PC -->|"adb shell / tap / screenshot"| AND
+    PC -->|"internet via cellular"| IPH
+    PC -->|"ssh user@10.0.0.2"| RPI
+    PC -->|"adb-shell.sh ls /mnt/media_rw/"| USB
+    PC -->|"DHCP on eth0/usb0"| ETH
+    HUB -->|"connects"| AND & RPI & USB
 
     style PC fill:#4caf50,color:#fff
+    style USER fill:#0088cc,color:#fff
+    style HUB fill:#9e9e9e,color:#fff
 ```
 
 ---
@@ -108,7 +124,7 @@ If the iPhone is jailbroken with OpenSSH installed:
 If both devices are on the same WiFi:
 ```bash
 ~/bin/remote-device.sh ssh pi@raspberrypi.local "uname -a"
-~/bin/remote-device.sh ssh user@192.168.1.50 "ls /home/"
+~/bin/remote-device.sh ssh user@<device-ip> "ls /home/"
 ```
 
 ### Examples from Telegram

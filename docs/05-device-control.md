@@ -61,6 +61,40 @@ The watchdog checks ADB connectivity every minute and reconnects if needed.
 
 ---
 
+## Android Permission Layers
+
+```mermaid
+graph TB
+    subgraph "Access Level"
+        L3["Root (uid=0)\nnot required / not used"]
+        L2["ADB Shell (uid=2000)\nvia self-bridge localhost:5555"]
+        L1["Termux App (uid=10XXX)\nstandard app sandbox"]
+    end
+
+    subgraph "Capabilities at each layer"
+        C2["dumpsys, input, am, pm,\nscreencap, settings put,\nlogcat, getprop, setprop"]
+        C1["File I/O, network, Python,\nNode.js, curl, SSH server,\nTermux:API (camera, mic, GPS)"]
+    end
+
+    L2 --> C2
+    L1 --> C1
+
+    subgraph "Permission Grant (one-time via USB)"
+        USB["Host PC + USB cable\nbash utils/grant-permissions.sh"]
+        PERMS["44 runtime permissions\n+ 17 appops to Termux packages"]
+    end
+
+    USB --> PERMS
+    PERMS --> C1
+
+    style L2 fill:#ff9800,color:#fff
+    style L1 fill:#4caf50,color:#fff
+    style L3 fill:#9e9e9e,color:#fff
+    style USB fill:#2196f3,color:#fff
+```
+
+---
+
 ## Android Permissions
 
 44 runtime permissions and 17 appops are granted via `grant-permissions.sh`. This requires a one-time USB ADB connection from a computer.
@@ -92,6 +126,37 @@ bash utils/grant-permissions.sh
 ---
 
 ## UI Automation
+
+### Automation Flow
+
+```mermaid
+sequenceDiagram
+    participant LLM as LLM (via Telegram)
+    participant SH as ui-control.sh / ui-auto.py
+    participant UNLOCK as ensure-unlocked.sh
+    participant ADB as ADB Shell (uid=2000)
+    participant ANDROID as Android UI
+
+    LLM->>SH: exec: ui-control.sh open com.whatsapp
+    SH->>UNLOCK: Check screen state
+    UNLOCK->>ADB: dumpsys power
+    ADB-->>UNLOCK: WAKEFULNESS=Asleep
+    UNLOCK->>ADB: KEYCODE_WAKEUP + swipe + PIN
+    ADB-->>UNLOCK: Screen unlocked
+    UNLOCK-->>SH: Ready
+    SH->>ADB: am start com.whatsapp
+    ADB-->>ANDROID: App launched
+    SH-->>LLM: WhatsApp opened
+
+    Note over LLM,ANDROID: Complex flows use ui-auto.py (XML parsing)
+    LLM->>SH: exec: ui-auto.py waittap "AGREE" 10
+    SH->>ADB: uiautomator dump
+    ADB-->>SH: UI hierarchy XML
+    SH->>SH: Parse XML, find element bounds
+    SH->>ADB: input tap X Y
+    ADB-->>ANDROID: Element tapped
+    SH-->>LLM: Tapped "AGREE"
+```
 
 Two complementary tools provide full Android UI control.
 

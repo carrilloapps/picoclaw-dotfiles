@@ -50,6 +50,41 @@ Location on device: `~/bin/watchdog.sh`
 
 Runs every minute via cron. Monitors four critical services and restarts any that are down. Only logs when a restart actually occurs.
 
+### Watchdog Flow
+
+```mermaid
+flowchart TD
+    START([cron triggers watchdog.sh\nevery 60 seconds]) --> SSHD
+
+    SSHD["Check sshd\npgrep -x sshd"] -->|running| WAKE
+    SSHD -->|not running| RSSHD["sshd restart"]
+    RSSHD --> LOG1["Log: sshd:RESTARTED\n+ push notification"]
+    LOG1 --> WAKE
+
+    WAKE["Re-acquire wake lock\ntermux-wake-lock"] --> ADB
+
+    ADB["Check ADB bridge\nadb -s localhost:5555 shell echo ok"] -->|connected| GW
+    ADB -->|failed| RADB["setprop tcp.port 5555\nstop/start adbd\nadb connect localhost:5555"]
+    RADB --> LOG2["Log: adb:RECONNECTED\n+ push notification"]
+    LOG2 --> GW
+
+    GW["Check tmux session\n+ picoclaw.bin process"] -->|both running| END
+    GW -->|session missing| RGWN["Create new tmux session\nStart gateway"]
+    GW -->|process dead| RGWZ["Kill zombie tmux\nCreate new session\nStart gateway"]
+    RGWN --> LOG3["Log: gateway:RESPAWNED\n+ push notification"]
+    RGWZ --> LOG3
+    LOG3 --> END
+
+    END([Done — sleep until\nnext cron trigger])
+
+    style START fill:#4caf50,color:#fff
+    style END fill:#4caf50,color:#fff
+    style RSSHD fill:#f44336,color:#fff
+    style RADB fill:#f44336,color:#fff
+    style RGWN fill:#f44336,color:#fff
+    style RGWZ fill:#f44336,color:#fff
+```
+
 ### Services Monitored
 
 | Service | Check | Recovery |
@@ -117,6 +152,37 @@ Enable in `config.json`:
     "interval": 3600
   }
 }
+```
+
+---
+
+## System Recovery State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Healthy: Boot complete / boot script runs
+
+    Healthy --> GatewayCrashed: Process killed / OOM
+    Healthy --> ADBDropped: Network change / sleep
+    Healthy --> SSHDDown: Process crash
+    Healthy --> DeviceRebooted: Power cycle
+
+    GatewayCrashed --> Healthy: Watchdog respawns gateway (60s)
+    ADBDropped --> Healthy: Watchdog reconnects localhost:5555 (60s)
+    SSHDDown --> Healthy: Watchdog restarts sshd (60s)
+    DeviceRebooted --> Healthy: start-picoclaw.sh via Termux:Boot
+
+    note right of Healthy
+        All 4 services running:
+        sshd, wake lock,
+        ADB bridge, gateway
+    end note
+
+    note right of DeviceRebooted
+        start-picoclaw.sh runs
+        automatically via
+        Termux:Boot app
+    end note
 ```
 
 ---

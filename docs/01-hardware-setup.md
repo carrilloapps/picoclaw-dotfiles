@@ -1,5 +1,47 @@
 # 01 — Hardware Setup
 
+## Physical Setup
+
+```mermaid
+graph TB
+    subgraph "Power & Connectivity"
+        CHARGER["USB-C Charger"]
+        WIFI["WiFi Router"]
+    end
+
+    subgraph "Android Device — Termux"
+        PHONE["Xiaomi Redmi Note 10 Pro\n(or any Android 11+ phone)"]
+        TERMUX["Termux\n(Linux environment)"]
+        BOOT["Termux:Boot\n(auto-start)"]
+        API["Termux:API\n(sensors, camera, mic)"]
+    end
+
+    subgraph "Workstation (Optional)"
+        PC["Windows / macOS / Linux\nSSH + Makefile management"]
+    end
+
+    subgraph "Cloud"
+        LLM["LLM Providers\n(Azure, Ollama, Groq...)"]
+        TG["Telegram"]
+    end
+
+    CHARGER -->|"power"| PHONE
+    WIFI -->|"WiFi"| PHONE
+    PHONE --> TERMUX
+    TERMUX --> BOOT
+    TERMUX --> API
+    PHONE -->|"SSH :8022"| PC
+    PHONE -->|"HTTPS"| LLM
+    PHONE -->|"long poll"| TG
+
+    style PHONE fill:#4caf50,color:#fff
+    style TERMUX fill:#2196f3,color:#fff
+    style LLM fill:#0078d4,color:#fff
+    style TG fill:#0088cc,color:#fff
+```
+
+---
+
 ## Device Requirements
 
 PicoClaw runs on any **Android 11+** phone with `aarch64` (ARM64). The binary is ~27 MB and uses <10 MB RAM — all LLM inference happens in the cloud.
@@ -150,6 +192,25 @@ adb tcpip 5555           # Enable wireless ADB (so USB cable can be unplugged)
 ### PicoClaw's ADB Self-Bridge
 
 After first setup, PicoClaw connects to itself via `adb connect localhost:5555` (loopback — no USB or network exposure). The boot script re-enables this on every reboot. The watchdog reconnects it if it drops. No USB cable required after initial setup.
+
+```mermaid
+sequenceDiagram
+    participant HOST as Host Computer
+    participant PHONE as Android Phone
+    participant ADB as ADB Daemon (adbd)
+
+    Note over HOST,PHONE: One-time USB setup
+    HOST->>PHONE: adb devices (USB)
+    PHONE-->>HOST: Authorize prompt shown
+    HOST->>PHONE: bash utils/grant-permissions.sh
+    HOST->>PHONE: adb tcpip 5555
+
+    Note over PHONE,ADB: After setup — loopback only, no USB
+    PHONE->>ADB: adb connect localhost:5555
+    ADB-->>PHONE: connected to localhost:5555
+    Note over PHONE,ADB: Boot script repeats this on every reboot
+    Note over PHONE,ADB: Watchdog reconnects if bridge drops
+```
 
 ---
 

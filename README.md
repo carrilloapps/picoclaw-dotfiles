@@ -4,7 +4,7 @@
 [![Platform: Android/Termux](https://img.shields.io/badge/Platform-Android%20%2F%20Termux-3DDC84?logo=android)](https://termux.dev)
 [![PicoClaw: v0.2.4](https://img.shields.io/badge/PicoClaw-v0.2.4-blue?logo=go)](https://github.com/sipeed/picoclaw)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-0088cc?logo=telegram)](docs/04-telegram-integration.md)
-[![Shell Scripts](https://img.shields.io/badge/Shell-21%20scripts-4EAA25?logo=gnubash)](utils/)
+[![Shell Scripts](https://img.shields.io/badge/Shell-23%20scripts-4EAA25?logo=gnubash)](utils/)
 [![Python Scripts](https://img.shields.io/badge/Python-12%20scripts-3776AB?logo=python)](scripts/)
 [![MCP Tools](https://img.shields.io/badge/MCP-146%20tools-purple)](docs/07-skills-and-mcp.md)
 [![Skills](https://img.shields.io/badge/Skills-31-orange)](docs/07-skills-and-mcp.md)
@@ -208,7 +208,7 @@ picoclaw-dotfiles/                          57 files
 |   |-- .gitignore                      Only allows template files
 |   |-- config.template.json            config.json with <PLACEHOLDER> values
 |   +-- security.template.yml           .security.yml with <PLACEHOLDER> values
-|-- docs/                               Step-by-step guides (8 files)
+|-- docs/                               Step-by-step guides (9 files)
 |   |-- 01-hardware-setup.md            Device requirements, Termux, SSH
 |   |-- 02-picoclaw-installation.md     Binary, TLS fix, initial config
 |   |-- 03-providers-setup.md           Azure, Ollama, Groq, Antigravity
@@ -216,7 +216,8 @@ picoclaw-dotfiles/                          57 files
 |   |-- 05-device-control.md            ADB self-bridge, permissions, UI
 |   |-- 06-resilience.md                Boot script, watchdog, verification
 |   |-- 07-skills-and-mcp.md            Skills, 4 MCP servers, 146 tools
-|   +-- 08-advanced-features.md         Scraping, knowledge base, cron
+|   |-- 08-advanced-features.md         Scraping, knowledge base, cron
+|   +-- 09-remote-devices.md            Remote device control via USB OTG
 |-- scripts/                            Python scripts for remote management (12 files)
 |   |-- README.md                       Script documentation
 |   |-- change_model.py                 Switch LLM model (3 config locations)
@@ -230,7 +231,7 @@ picoclaw-dotfiles/                          57 files
 |   |-- setup_knowledge.py              Create knowledge base on device
 |   |-- setup_voice.py                  Configure Whisper STT
 |   +-- verify_resilience.py            8-phase resilience verification
-|-- utils/                              Device-side files deployed to phone (23 files)
+|-- utils/                              Device-side files deployed to phone (24 files)
 |   |-- AGENT.md                        Agent persona (reference copy)
 |   |-- README.md                       Deployment instructions
 |   |-- adb-enable.sh                   Re-enable ADB TCP if connection lost
@@ -238,22 +239,23 @@ picoclaw-dotfiles/                          57 files
 |   |-- auth-antigravity.sh             Google OAuth for Antigravity provider
 |   |-- bash_profile                    Login shell bridge -> ~/.bash_profile
 |   |-- bashrc                          Shell config -> ~/.bashrc
-|   |-- boot-picoclaw.sh               Auto-start on boot
-|   |-- device-context.sh              AGENT.md generator with device context
-|   |-- ensure-unlocked.sh             Auto-unlock screen (wake + PIN)
-|   |-- grant-permissions.sh           Grant 44 permissions (run from PC)
-|   |-- install.sh                     One-click Termux installer
-|   |-- media-capture.sh               Photo/audio/screenshot/screenrecord
-|   |-- media-cleanup.sh               Auto-clean temp media files
-|   |-- picoclaw-wrapper.sh            TLS wrapper for the Go binary
-|   |-- scrape.sh                      Web scraper with method cascade
-|   |-- ssl-certs.sh                   System-wide SSL_CERT_FILE export
-|   |-- switch-model.sh               Hot-swap LLM model (25 models)
-|   |-- transcribe.sh                  STT: Azure Whisper -> Groq cascade
-|   |-- tts-reply.sh                   TTS: Azure -> Edge TTS (6 voices)
-|   |-- ui-auto.py                     Advanced UI automation (Python, XML)
-|   |-- ui-control.sh                  40+ UI automation commands (Bash)
-|   +-- watchdog.sh                    Cron watchdog: auto-restart services
+|   |-- boot-picoclaw.sh                Auto-start on boot
+|   |-- device-context.sh               AGENT.md generator with device context
+|   |-- ensure-unlocked.sh              Auto-unlock screen (wake + PIN)
+|   |-- grant-permissions.sh            Grant 44 permissions (run from PC)
+|   |-- install.sh                      One-click Termux installer
+|   |-- media-capture.sh                Photo/audio/screenshot/screenrecord
+|   |-- media-cleanup.sh                Auto-clean temp media files
+|   |-- picoclaw-wrapper.sh             TLS wrapper for the Go binary
+|   |-- remote-device.sh                USB OTG device control (Android, Pi, storage)
+|   |-- scrape.sh                       Web scraper with method cascade
+|   |-- ssl-certs.sh                    System-wide SSL_CERT_FILE export
+|   |-- switch-model.sh                 Hot-swap LLM model (25 models)
+|   |-- transcribe.sh                   STT: Azure Whisper -> Groq cascade
+|   |-- tts-reply.sh                    TTS: Azure -> Edge TTS (6 voices)
+|   |-- ui-auto.py                      Advanced UI automation (Python, XML)
+|   |-- ui-control.sh                   40+ UI automation commands (Bash)
+|   +-- watchdog.sh                     Cron watchdog: auto-restart services
 |-- .env.example                        Environment variable template
 |-- .gitignore                          Excludes secrets, binaries, runtime data
 |-- CLAUDE.md                           AI session context (for Claude Code)

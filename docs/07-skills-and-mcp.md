@@ -4,6 +4,47 @@
 
 PicoClaw is extensible through **skills** (task-specific instruction sets) and **MCP servers** (Model Context Protocol tools). This guide covers what is installed and how to add more.
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph "PicoClaw Gateway"
+        LLM["LLM (GPT-4o / Deepseek...)"]
+        BUILT["19 Built-in Tools\n(exec, read_file, web_fetch, cron...)"]
+    end
+
+    subgraph "Skills (~/.picoclaw/workspace/skills/)"
+        SK1["weather/\nSKILL.md"]
+        SK2["github/\nSKILL.md"]
+        SK3["summarize/\nSKILL.md"]
+        SK4["skill-creator/\nSKILL.md"]
+        SKN["... (31 total)"]
+    end
+
+    subgraph "MCP Servers (146 tools)"
+        MCP1["filesystem\n@mcp/server-filesystem"]
+        MCP2["memory\n@mcp/server-memory"]
+        MCP3["sequential-thinking\n@mcp/server-sequential-thinking"]
+        MCP4["github\n@mcp/server-github"]
+        MCP5["everything\n@mcp/server-everything"]
+    end
+
+    LLM --> BUILT
+    LLM -->|"BM25 + regex discovery"| SK1 & SK2 & SK3 & SK4 & SKN
+    LLM -->|"mcp tool"| MCP1 & MCP2 & MCP3 & MCP4 & MCP5
+
+    MCP1 -->|"read/write files"| FS[("~/ home\nworkspace\nmedia/\n/tmp/")]
+    MCP2 -->|"persistent graph"| KG[("Knowledge Graph\nentities + relations")]
+    MCP4 -->|"GitHub API"| GH["github.com"]
+
+    style LLM fill:#2196f3,color:#fff
+    style MCP1 fill:#9c27b0,color:#fff
+    style MCP2 fill:#9c27b0,color:#fff
+    style MCP3 fill:#9c27b0,color:#fff
+    style MCP4 fill:#9c27b0,color:#fff
+    style MCP5 fill:#9c27b0,color:#fff
+```
+
 ---
 
 ## Skills

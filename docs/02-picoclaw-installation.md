@@ -2,6 +2,29 @@
 
 This guide covers downloading the PicoClaw binary, applying the TLS fix for Termux, initial configuration, and verifying the installation.
 
+## Installation Flow
+
+```mermaid
+flowchart TD
+    A([Start]) --> B[Download binary\npicoclaw_Linux_arm64.tar.gz]
+    B --> C[Extract + chmod +x]
+    C --> D{TLS fix needed?}
+    D -->|Always in Termux| E[Rename to picoclaw.bin\nCreate wrapper script]
+    E --> F[Set SSL_CERT_FILE\nin wrapper]
+    F --> G[Create config.json\n+ .security.yml]
+    G --> H[Set API keys\nproviders + model_list]
+    H --> I[Run picoclaw status]
+    I --> J{Status OK?}
+    J -->|Yes| K([Installation complete])
+    J -->|No| L[Check TLS wrapper\nCheck API keys]
+    L --> I
+
+    style A fill:#4caf50,color:#fff
+    style K fill:#4caf50,color:#fff
+    style L fill:#f44336,color:#fff
+    style E fill:#ff9800,color:#fff
+```
+
 > **Quick alternative**: The one-click installer handles all of this automatically. Run from Termux:
 > ```bash
 > curl -sL https://raw.githubusercontent.com/carrilloapps/picoclaw-dotfiles/main/utils/install.sh | bash
@@ -162,6 +185,27 @@ make agent MSG="Hello"
 
 ---
 
+## TLS Wrapper Architecture
+
+```mermaid
+graph LR
+    subgraph "Without wrapper"
+        CALL1["picoclaw agent -m 'hello'"] --> BIN1["picoclaw (Go binary)"]
+        BIN1 -->|"HTTPS call"| FAIL["x509: certificate\nsigned by unknown authority"]
+        style FAIL fill:#f44336,color:#fff
+    end
+
+    subgraph "With wrapper (correct)"
+        CALL2["picoclaw agent -m 'hello'"] --> WRAP["wrapper script\n(sets SSL_CERT_FILE)"]
+        WRAP --> BIN2["picoclaw.bin (Go binary)"]
+        BIN2 -->|"HTTPS call\n(cert found)"| OK["Azure / Groq / Ollama\nAPI responses"]
+        style OK fill:#4caf50,color:#fff
+        style WRAP fill:#ff9800,color:#fff
+    end
+```
+
+---
+
 ## Full Automated Deployment
 
 For a complete setup (all 10 steps including package installation, file deployment, config verification, and end-to-end testing):
@@ -188,6 +232,25 @@ python scripts/full_deploy.py
 ## AGENT.md — The Agent's Brain
 
 PicoClaw's behavior, capabilities, and personality are defined in `~/.picoclaw/workspace/AGENT.md`. This file tells the LLM **what it can do** — every tool, script, API, and hardware capability.
+
+### AGENT.md Generation Flow
+
+```mermaid
+flowchart LR
+    SCRIPT["device-context.sh"] --> HW["Hardware\n(CPU, RAM, screen)"]
+    SCRIPT --> NET["Network\n(IP, WiFi state)"]
+    SCRIPT --> TOOLS["System tools\n(55+ detected)"]
+    SCRIPT --> TAPI["Termux:API\n(78 commands)"]
+    SCRIPT --> ADB["ADB state\n(uid=2000 access)"]
+    SCRIPT --> SKILLS["Installed skills"]
+    SCRIPT --> MCP["MCP servers"]
+    SCRIPT --> VOICE["Voice pipeline\n(STT + TTS voices)"]
+
+    HW & NET & TOOLS & TAPI & ADB & SKILLS & MCP & VOICE --> AGENT["AGENT.md\n(~1000+ lines)"]
+
+    style AGENT fill:#4caf50,color:#fff
+    style SCRIPT fill:#2196f3,color:#fff
+```
 
 ### How it's generated
 

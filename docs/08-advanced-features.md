@@ -10,6 +10,40 @@ This guide covers web scraping, the knowledge base, media cleanup, model switchi
 
 The `~/bin/scrape.sh` script provides universal web scraping with automatic method fallback.
 
+### Scraping Method Cascade
+
+```mermaid
+flowchart TD
+    REQ["scrape.sh URL"] --> AUTO{Auto mode\nor explicit?}
+
+    AUTO -->|"explicit --method"| DIRECT["Run specified method"]
+    AUTO -->|"auto (default)"| M1
+
+    M1["Method 1: curl + BeautifulSoup\n(Python, static HTML)"] --> OK1{Success?}
+    OK1 -->|yes| OUT["Clean text output"]
+    OK1 -->|"JS-heavy / blocked"| M2
+
+    M2["Method 2: Node.js + cheerio\n(handles more complex pages)"] --> OK2{Success?}
+    OK2 -->|yes| OUT
+    OK2 -->|failed| M3
+
+    M3["Method 3: Raw HTML\n(first 20 KB verbatim)"] --> OUT
+
+    subgraph "Explicit methods"
+        E1["--screenshot\nChrome + ADB screencap"]
+        E2["--links\nExtract all href links"]
+        E3["--json / --method api\nPretty-print JSON response"]
+    end
+
+    DIRECT --> E1 & E2 & E3
+
+    style REQ fill:#2196f3,color:#fff
+    style OUT fill:#4caf50,color:#fff
+    style M1 fill:#4a90d9,color:#fff
+    style M2 fill:#ff9800,color:#fff
+    style M3 fill:#9e9e9e,color:#fff
+```
+
 ### Methods
 
 | Method | Flag | Description |
@@ -71,6 +105,49 @@ python scripts/setup_knowledge.py
 This creates the directory and adds instructions to AGENT.md so the LLM knows to write there.
 
 ---
+
+## Media Lifecycle
+
+```mermaid
+flowchart LR
+    subgraph "Creation"
+        CAM["media-capture.sh\nphoto / audio / screenshot\n/ screenrecord"]
+        TTS["tts-reply.sh\nOGG Opus voice"]
+        TG_IN["Telegram voice note\n(incoming .oga.ogg)"]
+    end
+
+    subgraph "Temporary Storage"
+        MEDIA["~/media/\nphoto_YYYYMMDD.jpg\nscreenshot_YYYYMMDD.png\naudio_YYYYMMDD.m4a"]
+        TMP["Telegram temp\n/usr/tmp/picoclaw_media/"]
+        SDCARD["/sdcard/picoclaw_*\n(ADB screencap files)"]
+    end
+
+    subgraph "Delivery"
+        SEND["send_file tool\n→ Telegram"]
+    end
+
+    subgraph "Cleanup (hourly cron)"
+        CLEAN["media-cleanup.sh\nDeletes files older than 60 min"]
+        SAVE["media-cleanup.sh save\n→ workspace/ (permanent)"]
+    end
+
+    CAM --> MEDIA
+    TTS --> TMP
+    TG_IN --> TMP
+    MEDIA --> SEND
+    TMP --> SEND
+    SDCARD --> MEDIA
+
+    MEDIA -->|"auto after 60 min"| CLEAN
+    TMP -->|"auto after 60 min"| CLEAN
+    SDCARD -->|"auto after 60 min"| CLEAN
+    MEDIA -->|"manually"| SAVE
+    SAVE --> PERM["~/.picoclaw/workspace/\n(never deleted)"]
+
+    style CLEAN fill:#f44336,color:#fff
+    style SAVE fill:#4caf50,color:#fff
+    style PERM fill:#4caf50,color:#fff
+```
 
 ## Media Cleanup
 

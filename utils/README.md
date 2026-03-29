@@ -29,6 +29,7 @@ Device-side files that are deployed to the Android/Termux device. These are the 
 | `auth-antigravity.sh` | `~/bin/auth-antigravity.sh` | Google OAuth flow for Antigravity (Gemini) provider; preserves config.json model priority after auth |
 | `switch-model.sh` | `~/bin/switch-model.sh` | Hot-swap LLM model from chat or CLI across all 25 models with aliases and recommendations |
 | `media-cleanup.sh` | `~/bin/media-cleanup.sh` | Hourly cron job: deletes temp media files (screenshots, recordings, TTS audio) older than 60 minutes |
+| `remote-device.sh` | `~/bin/remote-device.sh` | USB OTG device control: Android (ADB), Raspberry Pi (SSH), USB storage, USB Ethernet |
 | `install.sh` | Run from Termux | One-click installer: packages, binary, config, scripts, MCP, gateway |
 
 ---
@@ -58,6 +59,7 @@ graph LR
             T12["auth-antigravity.sh"]
             T13["switch-model.sh"]
             T14["media-cleanup.sh"]
+        T15["remote-device.sh"]
         end
         subgraph "Home ~/"
             W["picoclaw (wrapper)"]
@@ -76,7 +78,7 @@ graph LR
     end
 
     REPO --> DEPLOY
-    DEPLOY --> T1 & T2 & T3 & T4 & T5 & T6 & T7 & T8 & T9 & T10 & T11 & T12 & T13 & T14
+    DEPLOY --> T1 & T2 & T3 & T4 & T5 & T6 & T7 & T8 & T9 & T10 & T11 & T12 & T13 & T14 & T15
     DEPLOY --> W & BR & BP
     DEPLOY --> SSL
     DEPLOY --> BOOT
@@ -125,6 +127,7 @@ scp utils/scrape.sh             <USER>@<HOST>:~/bin/scrape.sh
 scp utils/auth-antigravity.sh  <USER>@<HOST>:~/bin/auth-antigravity.sh
 scp utils/switch-model.sh     <USER>@<HOST>:~/bin/switch-model.sh
 scp utils/media-cleanup.sh    <USER>@<HOST>:~/bin/media-cleanup.sh
+scp utils/remote-device.sh   <USER>@<HOST>:~/bin/remote-device.sh
 
 # Set permissions on the device:
 chmod +x ~/picoclaw ~/bin/*.sh ~/bin/*.py ~/.termux/boot/start-picoclaw.sh

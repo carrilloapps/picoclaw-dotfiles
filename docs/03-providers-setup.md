@@ -259,6 +259,25 @@ Set in `config.json`:
 
 ## Switching Models
 
+### How Model Switching Works
+
+```mermaid
+flowchart TD
+    REQ["Switch request\n(user chat / script)"] --> SCRIPT["switch-model.sh\nor change_model.py"]
+    SCRIPT --> READ["Read config.json"]
+    READ --> UPD1["Update agents.defaults.model_name"]
+    UPD1 --> UPD2["Update model_list[N].model_name"]
+    UPD2 --> UPD3["Update model_list[N].model\n(with provider prefix)"]
+    UPD3 --> WRITE["Write config.json"]
+    WRITE --> RELOAD["POST /reload\n(hot-reload, no restart)"]
+    RELOAD --> VERIFY["picoclaw status\n(verify active model)"]
+    VERIFY --> DONE([Active model updated])
+
+    style REQ fill:#2196f3,color:#fff
+    style DONE fill:#4caf50,color:#fff
+    style RELOAD fill:#ff9800,color:#fff
+```
+
 ### From the Workstation
 
 ```bash
