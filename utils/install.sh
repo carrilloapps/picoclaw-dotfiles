@@ -610,10 +610,12 @@ deploy_script "auth-antigravity.sh" "$BIN_DIR/auth-antigravity.sh"
 # Deploy boot script
 deploy_script "boot-picoclaw.sh"    "$BOOT_DIR/start-picoclaw.sh"
 
-# Deploy AGENT.md
-if [ -n "$REPO_UTILS" ] && [ -f "$REPO_UTILS/AGENT.md" ]; then
-    cp "$REPO_UTILS/AGENT.md" "$WORKSPACE_DIR/AGENT.md"
-    echo "  $WORKSPACE_DIR/AGENT.md"
+# Deploy AGENT.md (static fallback — device-context.sh generates the real one later)
+if [ ! -f "$WORKSPACE_DIR/AGENT.md" ]; then
+    if [ -n "$REPO_UTILS" ] && [ -f "$REPO_UTILS/AGENT.md" ]; then
+        cp "$REPO_UTILS/AGENT.md" "$WORKSPACE_DIR/AGENT.md"
+        echo "  $WORKSPACE_DIR/AGENT.md (static fallback)"
+    fi
 fi
 
 success "Device scripts deployed"
@@ -760,6 +762,21 @@ echo -e "    ${BOLD}make grant-permissions${NC}"
 echo ""
 echo "  This is a one-time setup. PicoClaw works without it, but camera,"
 echo "  microphone, and UI automation features will be limited."
+echo ""
+
+# ---------------------------------------------------------------------------
+# Generate AGENT.md with full device context
+# ---------------------------------------------------------------------------
+info "Generating AGENT.md with full device capabilities..."
+
+if [ -x "$BIN_DIR/device-context.sh" ]; then
+    "$BIN_DIR/device-context.sh" >/dev/null 2>&1 && \
+        success "AGENT.md generated with all capabilities" || \
+        warn "AGENT.md generation failed. Run manually: ~/bin/device-context.sh"
+else
+    warn "device-context.sh not found. AGENT.md using static template."
+fi
+
 echo ""
 
 # ---------------------------------------------------------------------------

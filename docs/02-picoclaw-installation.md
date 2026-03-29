@@ -185,6 +185,50 @@ python scripts/full_deploy.py
 
 ---
 
+## AGENT.md — The Agent's Brain
+
+PicoClaw's behavior, capabilities, and personality are defined in `~/.picoclaw/workspace/AGENT.md`. This file tells the LLM **what it can do** — every tool, script, API, and hardware capability.
+
+### How it's generated
+
+The `device-context.sh` script scans the device and generates AGENT.md dynamically:
+
+```bash
+~/bin/device-context.sh
+```
+
+It detects:
+- Hardware (CPU, RAM, storage, screen size)
+- Network (IP, gateway, WiFi/mobile state)
+- All installed system tools (55+)
+- All Termux:API commands (78)
+- ADB self-bridge status
+- Installed skills (31)
+- MCP servers
+- Voice pipeline (STT + TTS voices)
+- UI automation capabilities
+- USB OTG device control
+- And more...
+
+### When is it generated?
+
+| Trigger | How |
+| ------- | --- |
+| **install.sh** | Runs `device-context.sh` at the end automatically |
+| **full_deploy.py** | Step 4 generates AGENT.md |
+| **Manual** | `~/bin/device-context.sh` anytime |
+| **After installing new packages** | Re-run to update capabilities |
+
+### Can I edit it?
+
+Yes — `device-context.sh` generates the base, but you can add custom sections to the generated file. However, running `device-context.sh` again will overwrite your changes. For persistent customizations, edit `device-context.sh` itself.
+
+### Sharing your AGENT.md
+
+The `utils/AGENT.md` in the repo is a **static reference copy**. The real one on the device is generated dynamically and will be much more complete (1000+ lines with all detected capabilities).
+
+---
+
 ## Next Steps
 
 With PicoClaw installed and verified, proceed to [03 - Providers Setup](03-providers-setup.md) to configure your LLM providers.
