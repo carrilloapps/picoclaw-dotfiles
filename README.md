@@ -127,6 +127,7 @@ graph TB
 - **Voice pipeline** -- 6 TTS voices (Spanish + English), Whisper STT with provider cascade
 - **Web scraping** -- curl+BS4, Node/cheerio, screenshot fallback
 - **One-click installer** -- single `install.sh` script sets up everything from Termux
+- **Remote device control** -- manage other phones via USB OTG from Telegram
 - **Remote management** -- 30+ Makefile targets, 11 Python scripts, all via SSH
 
 ---
@@ -190,6 +191,7 @@ Detailed step-by-step guides are in the [`docs/`](docs/) directory:
 | [06 - Resilience](docs/06-resilience.md) | Boot script, watchdog, 8-phase verification |
 | [07 - Skills and MCP](docs/07-skills-and-mcp.md) | Skills, 4 MCP servers, 146 tools |
 | [08 - Advanced Features](docs/08-advanced-features.md) | Web scraping, knowledge base, cron jobs |
+| [09 - Remote Devices](docs/09-remote-devices.md) | Control other phones via USB OTG |
 
 ---
 

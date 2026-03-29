@@ -1052,6 +1052,25 @@ When the user says **"guarda el contexto"**, **"documenta esto"**, **"arde el co
 
 When the user asks "how did we do X?" — search this directory first.
 
+## Remote Device Control (USB OTG)
+
+If another phone/device is connected via USB OTG cable, you can control it:
+
+\`\`\`bash
+~/bin/remote-device.sh list                   # Show connected devices
+~/bin/remote-device.sh info                   # Target device specs + battery
+~/bin/remote-device.sh screenshot             # Screenshot of target
+~/bin/remote-device.sh shell "command"        # Run ADB command on target
+~/bin/remote-device.sh tap 540 1200           # Tap on target screen
+~/bin/remote-device.sh type "text"            # Type on target
+~/bin/remote-device.sh open com.app.name      # Open app on target
+~/bin/remote-device.sh push local remote      # Send file to target
+~/bin/remote-device.sh pull remote local      # Get file from target
+\`\`\`
+
+When user mentions "the other phone" or "connected device", use remote-device.sh.
+The script auto-detects external devices (filters out self-bridge connections).
+
 ## Skills Available
 
 Read SOUL.md for personality. Skills are in ~/.picoclaw/workspace/skills/.
