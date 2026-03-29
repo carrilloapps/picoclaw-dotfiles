@@ -1,0 +1,6 @@
+# Allow only template files in this directory
+*
+!.gitignore
+!*.template.json
+!*.template.yml
+!*.template.yaml

@@ -1,0 +1,85 @@
+# =============================================================================
+# PicoClaw .gitignore
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Secrets & Credentials (CRITICAL — never commit these)
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.secret
+*.key
+*.pem
+
+# PicoClaw config files (contain API keys)
+config.json
+.security.yml
+
+# Config backups (may contain old secrets)
+*.bak
+*.backup
+*.orig
+
+# ---------------------------------------------------------------------------
+# PicoClaw Binaries & Archives
+# ---------------------------------------------------------------------------
+picoclaw
+picoclaw-launcher
+picoclaw-launcher-tui
+picoclaw_*.tar.gz
+picoclaw_*.zip
+*.exe
+
+# ---------------------------------------------------------------------------
+# PicoClaw Runtime Data
+# ---------------------------------------------------------------------------
+.picoclaw/
+workspace/
+
+# ---------------------------------------------------------------------------
+# Termux / Device Files
+# ---------------------------------------------------------------------------
+.termux_authinfo
+.bash_history
+.ssh/
+
+# ---------------------------------------------------------------------------
+# OS & Editor Artifacts
+# ---------------------------------------------------------------------------
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.nfs*
+
+# Editors
+*.swp
+*.swo
+*.swn
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ---------------------------------------------------------------------------
+# Logs & Temporary Files
+# ---------------------------------------------------------------------------
+*.log
+*.tmp
+*.temp
+logs/
+tmp/
+__pycache__/

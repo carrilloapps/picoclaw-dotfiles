@@ -1,0 +1,16 @@
+# =============================================================================
+# PicoClaw Security Configuration Template
+# =============================================================================
+# Location on device: ~/.picoclaw/.security.yml
+#
+# Replace <YOUR_OLLAMA_API_KEY> with your actual Ollama Cloud API key.
+# NEVER commit the real .security.yml file.
+# =============================================================================
+
+model_list:
+  ollama:0:
+    api_keys:
+      - <YOUR_OLLAMA_API_KEY>
+channels: {}
+web: {}
+skills: {}

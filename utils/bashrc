@@ -1,0 +1,15 @@
+# =============================================================================
+# .bashrc — Termux shell configuration for PicoClaw device
+# =============================================================================
+# Installation on the device:
+#   cp utils/bashrc ~/.bashrc
+# =============================================================================
+
+# Auto-start SSH server on terminal open
+pgrep -x sshd >/dev/null || sshd
+
+# Fix TLS certificates for Go binaries (PicoClaw) in Termux
+export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
+
+# Add ~/bin to PATH (picoclaw wrapper, transcribe.sh, etc.)
+export PATH="$HOME/bin:$PATH"

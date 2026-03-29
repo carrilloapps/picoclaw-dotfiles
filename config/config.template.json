@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "agents": {
+    "defaults": {
+      "workspace": "/data/data/com.termux/files/home/.picoclaw/workspace",
+      "restrict_to_workspace": false,
+      "allow_read_outside_workspace": false,
+      "provider": "openai",
+      "model_name": "<DEFAULT_MODEL>",
+      "max_tokens": 0,
+      "max_tool_iterations": 0,
+      "summarize_message_threshold": 0,
+      "summarize_token_percent": 0,
+      "steering_mode": "one-at-a-time",
+      "subturn": {
+        "max_depth": 0,
+        "max_concurrent": 0,
+        "default_timeout_minutes": 0,
+        "default_token_budget": 0,
+        "concurrency_timeout_sec": 0
+      },
+      "tool_feedback": {
+        "enabled": true,
+        "max_args_length": 300
+      }
+    }
+  },
+  "providers": {
+    "openai": {
+      "base_url": "https://ollama.com/v1",
+      "api_key": "<YOUR_OLLAMA_API_KEY>"
+    }
+  },
+  "channels": {
+    "whatsapp": { "enabled": false },
+    "telegram": { "enabled": false },
+    "feishu": { "enabled": false },
+    "discord": { "enabled": false },
+    "maixcam": { "enabled": false },
+    "qq": { "enabled": false },
+    "dingtalk": { "enabled": false },
+    "slack": { "enabled": false },
+    "matrix": { "enabled": false },
+    "line": { "enabled": false },
+    "onebot": { "enabled": false },
+    "wecom": { "enabled": false },
+    "weixin": { "enabled": false },
+    "pico": { "enabled": false },
+    "pico_client": { "enabled": false },
+    "irc": { "enabled": false }
+  },
+  "model_list": [
+    {
+      "model_name": "<DEFAULT_MODEL>",
+      "model": "<PROVIDER/MODEL_ID>",
+      "api_key": "<YOUR_OLLAMA_API_KEY>",
+      "api_base": "https://ollama.com/v1"
+    }
+  ],
+  "gateway": {
+    "host": "",
+    "port": 0,
+    "hot_reload": false
+  },
+  "hooks": {
+    "enabled": true,
+    "defaults": {
+      "observer_timeout_ms": 500,
+      "interceptor_timeout_ms": 5000,
+      "approval_timeout_ms": 60000
+    }
+  },
+  "tools": {
+    "allow_read_paths": null,
+    "allow_write_paths": null,
+    "filter_sensitive_data": true,
+    "filter_min_length": 8,
+    "web": { "enabled": false },
+    "cron": { "enabled": false },
+    "exec": { "enabled": false },
+    "skills": { "enabled": false },
+    "media_cleanup": { "enabled": false },
+    "mcp": { "enabled": false },
+    "append_file": { "enabled": false },
+    "edit_file": { "enabled": false },
+    "find_skills": { "enabled": false },
+    "i2c": { "enabled": false },
+    "install_skill": { "enabled": false },
+    "list_dir": { "enabled": false },
+    "message": { "enabled": false },
+    "read_file": { "enabled": false },
+    "send_file": { "enabled": false },
+    "spawn": { "enabled": false },
+    "spawn_status": { "enabled": false },
+    "spi": { "enabled": false },
+    "subagent": { "enabled": false },
+    "web_fetch": { "enabled": false },
+    "write_file": { "enabled": true }
+  },
+  "heartbeat": {
+    "enabled": false,
+    "interval": 0
+  },
+  "devices": {
+    "enabled": false,
+    "monitor_usb": false
+  },
+  "voice": {
+    "echo_transcription": false
+  }
+}

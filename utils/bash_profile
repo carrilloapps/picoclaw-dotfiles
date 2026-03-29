@@ -1,0 +1,14 @@
+# =============================================================================
+# .bash_profile — Ensures .bashrc is loaded for login shells
+# =============================================================================
+# Termux only sources .bashrc for interactive login shells via /etc/profile.
+# This file bridges the gap for other login shell scenarios.
+#
+# Installation on the device:
+#   cp utils/bash_profile ~/.bash_profile
+# =============================================================================
+
+# Load .bashrc for login shells
+if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi
