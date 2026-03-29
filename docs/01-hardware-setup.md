@@ -1,155 +1,117 @@
-# 01 - Hardware Setup
-
-This guide covers the hardware requirements and initial Termux setup for running PicoClaw on an Android phone.
-
----
+# 01 — Hardware Setup
 
 ## Device Requirements
 
-PicoClaw runs on virtually any Android phone with **Android 11 or later**. The Go binary is compiled for `aarch64` (ARM64), which covers all modern Android devices. Minimum specs:
+PicoClaw runs on any **Android 11+** phone with `aarch64` (ARM64). The binary is ~27 MB and uses <10 MB RAM — all LLM inference happens in the cloud.
 
 | Requirement | Minimum | Recommended |
 | ----------- | ------- | ----------- |
-| Android version | 11 (API 30) | 13+ (API 33+) |
+| Android | 11 (API 30) | 13+ (API 33+) |
 | Architecture | `aarch64` / `arm64-v8a` | Same |
-| RAM | 2 GB | 4 GB+ |
-| Storage | 500 MB free | 2 GB+ free |
-| Network | WiFi (for SSH + API calls) | WiFi + mobile data |
-
-The PicoClaw binary itself is only ~27 MB and uses less than 10 MB of RAM at runtime. All heavy lifting (LLM inference) happens in the cloud.
+| RAM | 2 GB | 4+ GB |
+| Storage | 500 MB free | 2+ GB free |
+| Network | WiFi | WiFi + mobile data |
 
 ### Author's Device
 
-This implementation runs on a **Xiaomi Redmi Note 10 Pro** (codename `sweet`):
-
-| Attribute | Value |
-| --------- | ----- |
-| **Model** | Xiaomi Redmi Note 10 Pro (M2101K6R) |
-| **SoC** | Qualcomm Snapdragon 732G (SM7150) |
-| **CPU** | Qualcomm Kryo 470 -- 8 cores, big.LITTLE |
+| | |
+| --- | --- |
+| **Model** | Xiaomi Redmi Note 10 Pro (M2101K6R, codename `sweet`) |
+| **SoC** | Qualcomm Snapdragon 732G (SM7150), 8-core Kryo 470 |
 | **RAM** | 6 GB LPDDR4X + 2 GB swap |
 | **Storage** | 128 GB UFS 2.2 |
-| **Display** | 6.67" AMOLED, 1080x2400 |
-| **Camera** | 108 MP (back), 16 MP (front) |
-| **Android** | 16 (API 36) via PixelOS custom ROM |
-| **Kernel** | 4.14.x (SMP PREEMPT) |
-
-Any old phone you have lying around will work. The whole point is to repurpose hardware that would otherwise collect dust.
+| **Display** | 6.67" AMOLED, 1080×2400 |
+| **Camera** | 108 MP back, 16 MP front |
+| **Android** | 16 (API 36) via PixelOS |
 
 ---
 
-## Step 1: Install Termux
+## Quick Setup (Recommended)
 
-Install **Termux** from [F-Droid](https://f-droid.org/en/packages/com.termux/), not from the Play Store. The Play Store version is outdated and will not work.
+Install the three Termux apps from **F-Droid** (NOT Play Store):
 
-```
-https://f-droid.org/en/packages/com.termux/
-```
+| App | Link | Purpose |
+| --- | ---- | ------- |
+| **Termux** | [F-Droid](https://f-droid.org/en/packages/com.termux/) | Terminal + Linux environment |
+| **Termux:Boot** | [F-Droid](https://f-droid.org/en/packages/com.termux.boot/) | Auto-start on device boot |
+| **Termux:API** | [F-Droid](https://f-droid.org/en/packages/com.termux.api/) | Camera, mic, GPS, SMS, sensors |
 
-After installing, open Termux and run the initial setup:
+> Open Termux:Boot once after installing so Android registers it.
 
-```bash
-pkg update && pkg upgrade -y
-pkg install openssh
-```
-
-### Install Companion Apps
-
-These are also from F-Droid:
-
-| App | F-Droid Link | Purpose |
-| --- | ------------ | ------- |
-| **Termux:Boot** | [Link](https://f-droid.org/en/packages/com.termux.boot/) | Auto-start services on device boot |
-| **Termux:API** | [Link](https://f-droid.org/en/packages/com.termux.api/) | Access Android hardware (camera, mic, sensors, GPS, SMS, calls) |
-
-After installing Termux:Boot, open it once so Android registers it as a boot receiver.
-
-After installing Termux:API, install the CLI bridge inside Termux:
+Then run the **one-click installer** — it handles SSH, packages, PicoClaw binary, config, scripts, and gateway:
 
 ```bash
-pkg install termux-api
+pkg update && pkg upgrade -y && pkg install -y curl
+curl -sL https://raw.githubusercontent.com/carrilloapps/picoclaw-dotfiles/main/utils/install.sh | bash
 ```
 
----
+The installer will:
+1. Install all 262 packages (openssh, python, node, ffmpeg, nmap, git, etc.)
+2. Download and configure PicoClaw with TLS wrapper
+3. Prompt you for API keys (Azure, Ollama, Groq)
+4. Prompt for Telegram bot token
+5. Set up SSH server, boot script, watchdog, and cron jobs
+6. Start the gateway
 
-## Step 2: SSH Server Setup
-
-Set up SSH so you can manage the device remotely from your workstation:
+After it finishes, SSH is running on port **8022**. Find your IP:
 
 ```bash
-# Set a password for SSH authentication
-passwd
-
-# Start the SSH server
-sshd
-
-# Find your device IP
 ifconfig | grep 'inet ' | grep -v 127.0.0.1
 ```
 
-The SSH server listens on port **8022** by default in Termux.
-
-### Test the Connection
-
-From your workstation:
-
-```bash
-ssh <user>@<device-ip> -p 8022
-```
-
-Or using Python (recommended for Windows, which lacks `sshpass`):
-
-```python
-import paramiko
-
-ssh = paramiko.SSHClient()
-ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect('<device-ip>', port=8022, username='<user>', password='<password>')
-stdin, stdout, stderr = ssh.exec_command('uname -a')
-print(stdout.read().decode())
-ssh.close()
-```
+Test from your workstation: `ssh <user>@<device-ip> -p 8022`
 
 ---
 
-## Step 3: Install Essential Packages
+## Granting Android Permissions
 
-Install the core tools PicoClaw and its scripts depend on:
+PicoClaw's device control (camera, mic, location, SMS, UI automation) needs Android permissions granted via USB ADB from a computer **one time**:
+
+```bash
+# From your computer, phone connected via USB:
+git clone https://github.com/carrilloapps/picoclaw-dotfiles.git
+bash picoclaw-dotfiles/utils/grant-permissions.sh
+```
+
+This grants 44 runtime permissions + 17 appops to all Termux apps. Details in [05 — Device Control](05-device-control.md).
+
+---
+
+## Manual Setup (Advanced)
+
+<details>
+<summary>If you prefer step-by-step instead of the one-click installer...</summary>
+
+### SSH Server
+
+```bash
+pkg install -y openssh
+passwd          # Set a password
+sshd            # Start SSH server (port 8022)
+```
+
+### Essential Packages
 
 ```bash
 pkg install -y \
     python nodejs tmux cronie jq curl wget ffmpeg \
     git gh make clang imagemagick socat rsync \
-    nmap openssl gnupg zip unzip android-tools
+    nmap openssl gnupg zip unzip android-tools \
+    termux-api ca-certificates
 ```
 
-For a complete environment (262 packages as in the author's setup), see the `full_deploy.py` script which handles all package installation automatically.
-
----
-
-## Step 4: Grant Android Permissions
-
-PicoClaw's device control features (camera, microphone, location, SMS, calls, UI automation) require Android permissions granted to Termux. This requires a one-time USB ADB connection from a computer:
+### Termux:API CLI
 
 ```bash
-# From your computer (with adb installed), with the phone connected via USB:
-bash utils/grant-permissions.sh
+pkg install -y termux-api
 ```
 
-This grants 44 runtime permissions and 17 appops to Termux, Termux:API, and Termux:Boot. See [05-device-control.md](05-device-control.md) for the full list.
+Then continue to [02 — PicoClaw Installation](02-picoclaw-installation.md).
 
----
-
-## Quick Alternative: One-Click Installer
-
-If you want to skip the manual setup in the following guides, the one-click installer handles everything from this point forward (packages, binary, config, scripts, gateway):
-
-```bash
-curl -sL https://raw.githubusercontent.com/carrilloapps/picoclaw-dotfiles/main/utils/install.sh | bash
-```
+</details>
 
 ---
 
 ## Next Steps
 
-With Termux set up and SSH working, proceed to [02 - PicoClaw Installation](02-picoclaw-installation.md).
+→ [02 — PicoClaw Installation](02-picoclaw-installation.md)
