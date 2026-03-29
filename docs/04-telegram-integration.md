@@ -1,5 +1,7 @@
 # 04 - Telegram Integration
 
+> **Note**: The one-click installer (`utils/install.sh`) prompts for your Telegram bot token and configures the gateway automatically. This guide is for manual setup or reconfiguration.
+
 PicoClaw connects to Telegram via long polling -- no webhooks or open ports required. This guide covers bot creation, configuration, security, and the voice pipeline.
 
 ---

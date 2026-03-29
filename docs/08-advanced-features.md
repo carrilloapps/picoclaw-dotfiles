@@ -1,5 +1,7 @@
 # 08 - Advanced Features
 
+> **Note**: The one-click installer (`utils/install.sh`) deploys all scripts described here. Use `make install-scraping` to add the optional web scraping stack and `make setup-knowledge` to initialize the knowledge base after installation.
+
 This guide covers web scraping, the knowledge base, media cleanup, model switching, background tasks, and cron jobs.
 
 ---

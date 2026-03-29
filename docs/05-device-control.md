@@ -1,5 +1,7 @@
 # 05 - Device Control
 
+> **Note**: The one-click installer (`utils/install.sh`) deploys all device-control scripts automatically. The ADB self-bridge is initialized by the boot script on every reboot. For first-time permission grants, see the ADB Setup section in [01 - Hardware Setup](01-hardware-setup.md).
+
 PicoClaw has full control of the Android device through an ADB self-bridge, UI automation scripts, and 44 Android permissions. No root required.
 
 ---

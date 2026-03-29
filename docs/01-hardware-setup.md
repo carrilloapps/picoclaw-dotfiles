@@ -112,6 +112,79 @@ Then continue to [02 — PicoClaw Installation](02-picoclaw-installation.md).
 
 ---
 
+## ADB Setup (Required for Full Device Control)
+
+ADB gives PicoClaw elevated Android shell access (uid=2000) for UI automation, screenshots, app control, and permissions grants. Initial setup requires a USB cable; after that, everything runs wirelessly over loopback.
+
+### On the Phone (One Time)
+
+1. **Settings → About Phone** — tap "Build number" 7 times to enable Developer Options.
+2. **Settings → System → Developer Options** — enable:
+   - **USB Debugging**
+   - **Wireless Debugging** (Android 11+)
+3. Connect the phone via USB cable to your computer.
+
+### On the Computer
+
+Install ADB:
+
+```bash
+# Windows
+scoop install adb
+# macOS
+brew install android-platform-tools
+# Linux
+sudo apt install adb
+# Termux (on the device itself)
+pkg install android-tools
+```
+
+Verify and grant permissions:
+
+```bash
+adb devices              # Phone should appear — accept the prompt on screen
+bash utils/grant-permissions.sh   # Grant 44 runtime permissions + 17 appops
+adb tcpip 5555           # Enable wireless ADB (so USB cable can be unplugged)
+```
+
+### PicoClaw's ADB Self-Bridge
+
+After first setup, PicoClaw connects to itself via `adb connect localhost:5555` (loopback — no USB or network exposure). The boot script re-enables this on every reboot. The watchdog reconnects it if it drops. No USB cable required after initial setup.
+
+---
+
+## Remote Management from a Workstation (Optional)
+
+If you want to control the device from your PC using the Makefile and Python scripts:
+
+```bash
+# Clone the repo on your workstation
+git clone https://github.com/carrilloapps/picoclaw-dotfiles.git
+cd picoclaw-dotfiles
+pip install paramiko
+cp .env.example .env
+# Edit .env with your device IP, SSH port, credentials, and API keys
+```
+
+Then use the Makefile — all commands run over SSH, no USB needed:
+
+```bash
+make help               # Show all 30+ available commands
+make status             # Check PicoClaw status
+make info               # Full device diagnostic
+make deploy             # Deploy TLS wrapper + scripts
+make gateway-start      # Start Telegram gateway
+make gateway-restart    # Restart gateway
+make agent MSG="Hello"  # Send message to agent
+make verify             # Run 8-phase resilience test
+make models             # List available LLM models
+make config             # Show current config (secrets masked)
+```
+
+Remote management is completely optional — the phone runs autonomously after `install.sh` finishes.
+
+---
+
 ## Next Steps
 
 → [02 — PicoClaw Installation](02-picoclaw-installation.md)

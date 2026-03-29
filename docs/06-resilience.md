@@ -1,5 +1,7 @@
 # 06 - Resilience
 
+> **Note**: The one-click installer (`utils/install.sh`) installs the boot script, watchdog, and all cron jobs automatically. This guide explains what was set up and how to verify it.
+
 PicoClaw is designed to survive gateway crashes, ADB disconnects, and device reboots without manual intervention. This guide covers the boot script, watchdog, and verification.
 
 ---

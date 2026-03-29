@@ -1,5 +1,7 @@
 # 03 - Providers Setup
 
+> **Note**: The one-click installer (`utils/install.sh`) prompts for API keys and handles all provider configuration automatically. This guide is for manual setup or adding providers after the initial install.
+
 PicoClaw supports multiple LLM providers with automatic fallback. This guide covers configuring each provider and the model switching system.
 
 ---

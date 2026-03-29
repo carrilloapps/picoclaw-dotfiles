@@ -1,5 +1,7 @@
 # 07 - Skills and MCP
 
+> **Note**: The one-click installer (`utils/install.sh`) configures the five active MCP servers and installs the built-in skills automatically. This guide covers what is included and how to extend the setup.
+
 PicoClaw is extensible through **skills** (task-specific instruction sets) and **MCP servers** (Model Context Protocol tools). This guide covers what is installed and how to add more.
 
 ---
