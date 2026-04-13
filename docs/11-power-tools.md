@@ -216,6 +216,25 @@ Multi-step agent pipelines with output chaining:
 
 State persisted in `~/.picoclaw/workflow-runs/<id>/state.json`.
 
+#### When the agent should reach for workflows
+
+Per the AGENT.md Orchestration Policy, the default posture on this device is **maximum leverage**. If a request will touch more than ~3 visible steps (multi-step installs, long scrapes, batch data gathering, multi-file edits), the agent should declare a workflow up front instead of running loose shell commands one after another. Benefits:
+
+- **Resumable** — survives gateway restarts, network blips, handler timeouts.
+- **Inspectable** — `workflow.sh status` shows exactly where the run stopped.
+- **Cancellable** — the operator can stop a long task mid-flight without losing intermediate outputs.
+- **Composable** — steps can depend on each other's outputs via `${step_id}` substitution, so the agent can fan out (parallel probes) then fan in (summary).
+
+#### Plans on demand
+
+When the operator says "dame un plan", "cómo harías X", "propón pasos", the agent should respond with a numbered plan that:
+
+1. Lists every tool call and file path involved.
+2. Highlights destructive or irreversible steps (so the operator can veto them).
+3. Ends with a verification checklist.
+
+Then asks *once* for confirmation. After confirmation, the agent proceeds through the plan end-to-end — usually via `workflow.sh run` — without stopping between trivial steps. This is the "plan → approve once → execute fully" contract the device is built around.
+
 ### Webhook Server
 
 Lightweight Flask server that forwards HTTP webhooks to the agent:

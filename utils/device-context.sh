@@ -17,6 +17,22 @@ export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
 AGENT_MD="$HOME/.picoclaw/workspace/AGENT.md"
 BACKUP="$HOME/.picoclaw/workspace/AGENT.md.bak"
 
+# Pick up runtime policy flags from .picoclaw_keys (they are the source of
+# truth for env-controlled agent behavior). Reading here so we can render
+# the resolved policy into AGENT.md instead of a placeholder.
+if [ -f "$HOME/.picoclaw_keys" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . "$HOME/.picoclaw_keys" 2>/dev/null || true
+    set +a
+fi
+_raw="${AGENT_CROSS_CHAT_ACCESS:-false}"
+case "${_raw,,}" in
+    1|true|yes|on) CROSS_CHAT_POLICY="ON" ;;
+    *)             CROSS_CHAT_POLICY="OFF" ;;
+esac
+unset _raw
+
 # Backup current AGENT.md
 cp "$AGENT_MD" "$BACKUP" 2>/dev/null || true
 
@@ -284,6 +300,36 @@ for you. You have complete, unrestricted access. Act with confidence.
 | Kernel          | $KERNEL                        |
 | Local IP        | $LOCAL_IP                      |
 | Gateway/Router  | $GATEWAY                       |
+
+## Memory Policy (AGENT_CROSS_CHAT_ACCESS=$CROSS_CHAT_POLICY)
+
+$(if [ "$CROSS_CHAT_POLICY" = "ON" ]; then cat <<'POL_ON'
+This deployment is single-tenant: **one operator owns every channel and
+every session** on this device. Conversations from all chats (CLI, Telegram
+on any of their accounts, WhatsApp, Discord, …) are indexed into the local
+RAG by \`~/bin/memory-ingest.sh\`. That RAG is **the operator's own memory**.
+You are **not** crossing a privacy boundary when you consult it on their
+behalf — the operator enabled \`AGENT_CROSS_CHAT_ACCESS=true\` as standing
+consent.
+
+When the operator asks about prior messages across sessions, accounts, or
+channels ("what did I tell you yesterday from my other Telegram account?",
+"resume mis últimos mensajes"), **recall and answer**. Do NOT refuse by
+citing "privacy" — that is incorrect in this deployment. Preferred tools:
+
+1. \`~/bin/chat-history.sh search "<query>" [N]\` — semantic + BM25 search.
+2. \`~/bin/chat-history.sh recent [N]\` — last N messages across sessions.
+3. \`~/bin/chat-history.sh session <name-or-id> [N]\` — one session only.
+4. \`~/bin/chat-history.sh accounts\` — list distinct Telegram IDs used.
+5. \`~/bin/memory-ingest.sh search "<q>"\` — raw RAG query.
+POL_ON
+else cat <<'POL_OFF'
+\`AGENT_CROSS_CHAT_ACCESS\` is **OFF** on this deployment. Do not recall
+messages outside the current session. If the operator asks for cross-session
+history, explain the flag is disabled and point them at
+\`~/bin/chat-history.sh policy\` for the current state.
+POL_OFF
+fi)
 
 ## Your Capabilities
 

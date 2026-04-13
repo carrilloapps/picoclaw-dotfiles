@@ -4,6 +4,12 @@
 
 PicoClaw is extensible through **skills** (task-specific instruction sets) and **MCP servers** (Model Context Protocol tools). This guide covers what is installed and how to add more.
 
+## Default posture: everything on
+
+`config/config.template.json` now ships with the full orchestration surface **enabled by default**: `skills`, `find_skills`, `install_skill`, `spawn`, `spawn_status`, `subagent`, `mcp`, `cron`, `web`, `web_fetch`, `read_file`, `edit_file`, `write_file`, `append_file`, `list_dir`, `message`, `send_file`, `exec` (with `allow_remote: true`), `media_cleanup`. Only low-level hardware tools that require Android permissions the average device won't have (`i2c`, `spi`) stay off.
+
+This mirrors what the `AGENT.md` orchestration policy demands: **use every capability, chain tools, build long workflows, produce plans on demand**. If you want a stricter deployment, flip individual tools to `enabled: false` in `config.json` and restart the gateway.
+
 ## Architecture
 
 ```mermaid

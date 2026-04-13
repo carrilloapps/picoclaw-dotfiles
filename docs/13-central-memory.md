@@ -232,6 +232,66 @@ The quick tunnel produces a `https://*.trycloudflare.com` URL that points to you
 
 ---
 
+## Cross-session / cross-account recall
+
+PicoClaw is designed for **single-operator** deployments — one person owns every channel and every account the agent talks to. Because `memory-ingest.sh` indexes every turn from `gateway.log` and every session JSONL into RAG, the agent can technically recall any message the owner sent from any source: CLI, Telegram (across multiple of the owner's accounts), WhatsApp, Discord, webhooks.
+
+Whether the agent *does* recall across sessions is gated by a single env var:
+
+| Value | Behavior |
+|-------|----------|
+| `AGENT_CROSS_CHAT_ACCESS=true` | The RAG is treated as the **owner's own memory**. When the owner asks about prior messages in another session/account/channel, the agent recalls and answers. No "privacy" refusal — the owner has given standing consent by enabling the flag. |
+| `AGENT_CROSS_CHAT_ACCESS=false` *(default in template)* | The agent only uses the current-session context and refuses cross-session recall. Safe default for shared or multi-tenant setups. |
+
+The flag lives in `~/.picoclaw_keys` (or `.env` for remote deploys). `device-context.sh` reads it and renders the resolved policy directly into `~/.picoclaw/workspace/AGENT.md` so the LLM always sees the active rule.
+
+### The recall tool (`chat-history.sh`)
+
+When the flag is ON, the agent uses `~/bin/chat-history.sh` — a thin wrapper around RAG + session JSONL files:
+
+```bash
+~/bin/chat-history.sh policy                       # Print current policy
+~/bin/chat-history.sh accounts                     # Distinct Telegram IDs + counts
+~/bin/chat-history.sh sessions                     # Every session file, size, line count
+~/bin/chat-history.sh recent [N]                   # Last N messages across sessions
+~/bin/chat-history.sh session <name-or-id> [N]    # One session (partial match OK)
+~/bin/chat-history.sh search "<query>" [N]        # Hybrid RAG search
+```
+
+Every command exits with code `7` and a structured `{"status":"denied"}` JSON if the flag is OFF, so the agent can forward the refusal message verbatim instead of hallucinating one.
+
+#### Example: multi-account recall
+
+```bash
+# Operator uses two Telegram accounts (667556873 and 1945416503)
+$ ~/bin/chat-history.sh accounts
+{
+  "667556873": {"messages": 412, "bytes": 183294, "last": "2026-04-13T01:14:00"},
+  "1945416503": {"messages": 86, "bytes": 38110, "last": "2026-04-13T00:52:17"}
+}
+
+# Ask from either account: "qué te dije ayer desde mi otra cuenta?"
+$ ~/bin/chat-history.sh session 1945416503 10
+[2026-04-12T23:41:12] (user) ayuda a configurar el webhook de github
+[2026-04-12T23:41:48] (agent) voy a crear el endpoint ahora...
+...
+
+# Or search: "recuerdas el formulario de contacto que creaste?"
+$ ~/bin/chat-history.sh search "formulario contacto"
+[mem:telegram_direct_667556873:0014]
+  "créame un formulario de contacto con nombre, email y mensaje..."
+```
+
+### Why not just trust the RAG?
+
+The RAG by itself doesn't enforce the policy — it will happily return any matching chunk. The `AGENT_CROSS_CHAT_ACCESS` flag is an *agent-level* gate: the wrapper script refuses before a query ever reaches the DB. This separation lets you:
+
+- Keep the RAG populated with full history (useful for backups, future analysis).
+- Flip the flag at runtime without re-indexing.
+- Share the device temporarily with someone else by flipping to `false`.
+
+---
+
 ## Quick Reference
 
 ```bash
@@ -242,7 +302,12 @@ The quick tunnel produces a `https://*.trycloudflare.com` URL that points to you
 # Force ingestion now (don't wait for cron)
 ~/bin/memory-ingest.sh
 
-# Search past conversations
+# Search past conversations (agent-gated recall)
+~/bin/chat-history.sh search "voice notes"
+~/bin/chat-history.sh recent 20
+~/bin/chat-history.sh accounts
+
+# Raw RAG search (no policy gate — operator-only)
 ~/bin/memory-ingest.sh search "voice notes"
 
 # Test context injection
