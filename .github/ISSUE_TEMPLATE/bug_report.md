@@ -12,11 +12,25 @@ A clear and concise description of the bug.
 
 ## Environment
 
+Run `make info` or `python scripts/device_info.py` and paste the output:
+
+<details>
+<summary>Device info output</summary>
+
+```
+Paste make info output here
+```
+
+</details>
+
+Or fill manually:
+
 - **Device**: (e.g., Xiaomi Redmi Note 10 Pro)
 - **Android version**: (e.g., 16 / API 36)
 - **Termux version**: (e.g., 0.118.1)
-- **PicoClaw version**: (e.g., v0.2.4)
+- **PicoClaw version**: (e.g., v0.2.6)
 - **ROM**: (e.g., PixelOS, Stock)
+- **Installation method**: (install.sh / full_deploy.py / manual)
 
 ## Steps to Reproduce
 
@@ -32,13 +46,31 @@ What you expected to happen.
 
 What actually happened. Include error messages or logs if available.
 
-## Logs
+## Diagnostic Output
 
 <details>
-<summary>Relevant logs</summary>
+<summary>Gateway log</summary>
 
 ```
-Paste logs here
+# Run: cat ~/.picoclaw/gateway.log | tail -50
+```
+
+</details>
+
+<details>
+<summary>Watchdog log</summary>
+
+```
+# Run: cat ~/watchdog.log | tail -20
+```
+
+</details>
+
+<details>
+<summary>PicoClaw status</summary>
+
+```
+# Run: ./picoclaw status
 ```
 
 </details>

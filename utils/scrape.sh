@@ -24,32 +24,51 @@ URL="$1"
 shift
 METHOD="auto"
 EXTRA=""
+INSECURE=""
+
+# Known broken-cert domains — auto-fallback to insecure
+BROKEN_CERT_DOMAINS="bcv.org.ve|seniat.gob.ve|gaceta.gob.ve|cne.gob.ve|mp.gob.ve|mppt.gob.ve|mppee.gob.ve|minci.gob.ve"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --method)   METHOD="$2"; shift ;;
-        --screenshot) METHOD="screenshot" ;;
-        --links)    METHOD="links" ;;
-        --json)     METHOD="api" ;;
-        --raw)      METHOD="raw" ;;
-        *)          EXTRA="$EXTRA $1" ;;
+        --method)      METHOD="$2"; shift ;;
+        --screenshot)  METHOD="screenshot" ;;
+        --links)       METHOD="links" ;;
+        --json)        METHOD="api" ;;
+        --raw)         METHOD="raw" ;;
+        --insecure|-k) INSECURE="yes" ;;
+        *)             EXTRA="$EXTRA $1" ;;
     esac
     shift
 done
 
 if [ -z "$URL" ]; then
-    echo "Usage: scrape.sh <url> [--method curl|puppet|raw|api|screenshot|links]"
+    echo "Usage: scrape.sh <url> [--method curl|puppet|raw|api|screenshot|links] [--insecure]"
     exit 1
+fi
+
+# Auto-detect broken-cert domains (BCV, government sites with incomplete cert chains)
+if [ -z "$INSECURE" ] && echo "$URL" | grep -qE "$BROKEN_CERT_DOMAINS"; then
+    INSECURE="auto"
 fi
 
 # User agent rotation
 UA="Mozilla/5.0 (Linux; Android 16; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
 
+# Helper: curl with optional -k
+_curl() {
+    if [ -n "$INSECURE" ]; then
+        curl -k "$@"
+    else
+        curl "$@" 2>/dev/null || curl -k "$@"
+    fi
+}
+
 # -----------------------------------------------------------------------
 # Method: curl + text extraction (fast, static pages)
 # -----------------------------------------------------------------------
 scrape_curl() {
-    CONTENT=$(curl -sL -A "$UA" --max-time 30 "$URL" 2>/dev/null)
+    CONTENT=$(_curl -sL -A "$UA" --max-time 30 "$URL" 2>/dev/null)
     if [ -z "$CONTENT" ]; then
         echo "ERROR: Failed to fetch URL"
         return 1
@@ -115,7 +134,7 @@ scrape_screenshot() {
 # Method: extract links
 # -----------------------------------------------------------------------
 scrape_links() {
-    curl -sL -A "$UA" --max-time 30 "$URL" 2>/dev/null | python3 -c "
+    _curl -sL -A "$UA" --max-time 30 "$URL" 2>/dev/null | python3 -c "
 import sys, re
 from bs4 import BeautifulSoup
 soup = BeautifulSoup(sys.stdin.read(), 'html.parser')
@@ -131,14 +150,14 @@ for a in soup.find_all('a', href=True):
 # Method: JSON API
 # -----------------------------------------------------------------------
 scrape_api() {
-    curl -sL -A "$UA" --max-time 30 -H "Accept: application/json" "$URL" 2>/dev/null | python3 -m json.tool 2>/dev/null || curl -sL -A "$UA" "$URL" 2>/dev/null
+    _curl -sL -A "$UA" --max-time 30 -H "Accept: application/json" "$URL" 2>/dev/null | python3 -m json.tool 2>/dev/null || _curl -sL -A "$UA" "$URL" 2>/dev/null
 }
 
 # -----------------------------------------------------------------------
 # Method: raw HTML
 # -----------------------------------------------------------------------
 scrape_raw() {
-    curl -sL -A "$UA" --max-time 30 "$URL" 2>/dev/null | head -c 20000
+    _curl -sL -A "$UA" --max-time 30 "$URL" 2>/dev/null | head -c 20000
 }
 
 # -----------------------------------------------------------------------

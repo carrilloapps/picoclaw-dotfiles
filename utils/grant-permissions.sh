@@ -93,6 +93,28 @@ COARSE_LOCATION
 FINE_LOCATION
 MONITOR_LOCATION
 MONITOR_HIGH_POWER_LOCATION
+READ_SMS
+SEND_SMS
+RECEIVE_SMS
+READ_CONTACTS
+WRITE_CONTACTS
+READ_CALL_LOG
+WRITE_CALL_LOG
+READ_CALENDAR
+WRITE_CALENDAR
+READ_PHONE_STATE
+CALL_PHONE
+POST_NOTIFICATION
+GET_ACCOUNTS
+BODY_SENSORS
+ACTIVITY_RECOGNITION
+BLUETOOTH_SCAN
+BLUETOOTH_CONNECT
+NEARBY_WIFI_DEVICES
+READ_MEDIA_IMAGES
+READ_MEDIA_VIDEO
+READ_MEDIA_AUDIO
+MANAGE_MEDIA
 "
 
 echo ""
@@ -128,17 +150,45 @@ done
 echo "  [OK] Auto-revoke disabled for critical permissions"
 
 # =============================================================================
-# PART 5: Enable ADB over TCP for self-bridge
+# PART 5: Notification listener for Termux:API
 # =============================================================================
 echo ""
-echo "=== [5/5] Enabling ADB TCP for self-bridge ==="
+echo "=== [5/7] Enabling notification listener ==="
+adb shell "cmd notification allow_listener com.termux.api/com.termux.api.apis.NotificationListAPI\$NotificationService" 2>/dev/null
+echo "  [OK] Notification listener enabled via cmd notification"
+echo "  NOTE: If termux-notification-list still returns empty, use"
+echo "  ~/bin/notifications.sh instead (reads via ADB, no listener needed)."
+echo "  For full listener access: Settings > Apps > Special access >"
+echo "  Notification access > toggle Termux:API ON."
+
+# =============================================================================
+# PART 6: Enable ADB over TCP for self-bridge
+# =============================================================================
+echo ""
+echo "=== [6/7] Enabling ADB TCP for self-bridge ==="
 adb tcpip 5555 2>/dev/null
 echo "  [OK] ADB TCP on port 5555"
 echo "  Run 'adb connect localhost:5555' from Termux to self-connect"
 
+# =============================================================================
+# PART 7: Force-allow background execution
+# =============================================================================
+echo ""
+echo "=== [7/7] Background execution ==="
+for pkg in $PACKAGES; do
+    adb shell "cmd appops set $pkg RUN_IN_BACKGROUND allow" 2>/dev/null
+    adb shell "cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow" 2>/dev/null
+done
+echo "  [OK] Background execution forced for all Termux apps"
+
 echo ""
 echo "=== DONE ==="
 echo "All permissions granted. Termux has full device access."
+echo ""
+echo "Scripts for features that need special access:"
+echo "  ~/bin/notifications.sh          — Read notifications (via ADB, no listener needed)"
+echo "  ~/bin/ui-control.sh screenshot  — Screenshot (via ADB)"
+echo "  ~/bin/ensure-unlocked.sh        — Auto-unlock screen with PIN"
 echo ""
 echo "Capabilities unlocked:"
 echo "  - Location (GPS, network, background)"

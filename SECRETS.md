@@ -27,6 +27,7 @@
 | Azure OpenAI Base URL | `AZURE_OPENAI_BASE_URL` | `config.json` (providers + model_list), `~/.picoclaw_keys` | Azure resource endpoint |
 | Azure Deployment Name | `AZURE_OPENAI_DEPLOYMENT` | `config.json` (model_list) | Azure LLM deployment ID |
 | Azure Whisper Deployment | `AZURE_WHISPER_DEPLOYMENT` | `~/.picoclaw_keys` | Azure Whisper STT deployment name |
+| Google AI Studio API Key | `GOOGLE_AI_STUDIO_API_KEY` | `config.json` (model_list), `.security.yml` (required in v0.2.6) | Gemini 2.5 Flash/Pro inference (OpenAI-compatible endpoint) |
 | Groq API Key | `GROQ_API_KEY` | `config.json` (providers), `.security.yml`, `~/.picoclaw_keys` | Groq Whisper STT (fallback) |
 | Telegram Bot Token | `TELEGRAM_BOT_TOKEN` | `.security.yml` (channels.telegram.token) | Telegram bot authentication |
 | Telegram Owner ID | `TELEGRAM_OWNER_ID` | `config.json` (channels.telegram.allow_from) | Restrict bot access to owner |
@@ -61,6 +62,15 @@ Obtained from: Azure Portal > your OpenAI resource > Keys and Endpoint.
 Format:  https://<RESOURCE_NAME>.openai.azure.com
 Example: https://my-openai-resource.openai.azure.com
 ```
+
+### Google AI Studio API Key
+
+```
+Format:  AIzaSy<alphanumeric>
+Example: AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+Obtained from: [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (free, Google account required).
 
 ### Groq API Key
 

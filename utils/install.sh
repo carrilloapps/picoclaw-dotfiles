@@ -179,7 +179,7 @@ CORE_PACKAGES="openssh ca-certificates python nodejs-lts tmux cronie jq curl wge
 EXTENDED_PACKAGES="ffmpeg git gh make clang imagemagick socat rsync zip unzip android-tools termux-api"
 
 # Additional useful packages
-EXTRA_PACKAGES="openssl gnupg nmap rclone aria2c sqlite yt-dlp speedtest-go traceroute whois iperf3"
+EXTRA_PACKAGES="openssl gnupg nmap rclone aria2 sqlite yt-dlp speedtest-go traceroute whois iperf3 net-tools file pandoc tesseract poppler ghostscript ripgrep fd bat glow tree htop fzf lsof p7zip zstd yq git-delta golang rust php ruby perl deno lua54 openjdk-17 zig x11-repo chromium"
 
 info "Installing core packages..."
 pkg install -y $CORE_PACKAGES
@@ -192,8 +192,9 @@ if confirm "Install extra packages (nmap, rclone, yt-dlp, etc.)?" "y"; then
     pkg install -y $EXTRA_PACKAGES 2>/dev/null || warn "Some extra packages may not be available"
 fi
 
-# Install Python packages for scraping (optional)
-pip install --quiet httpx beautifulsoup4 2>/dev/null || true
+# Install Python packages: scraping + edge-tts (voice notes) + pyyaml (failover)
+# + flask (webhook server) + qrcode/pillow (QR tool) + pypdf (PDF tool)
+pip install --quiet httpx beautifulsoup4 edge-tts pyyaml flask qrcode pillow pypdf requests 2>/dev/null || true
 
 success "Packages installed"
 echo ""
@@ -351,6 +352,52 @@ if confirm "Configure Azure OpenAI (enterprise, optional)?" "n"; then
 fi
 echo ""
 
+# --- Google AI Studio ---
+GOOGLE_KEY=""
+GOOGLE_MODEL="gemini-2.5-flash"
+if confirm "Configure Google AI Studio (free, Gemini models)?" "n"; then
+    echo ""
+    echo "  Get a free API key at: https://aistudio.google.com/apikey"
+    echo ""
+    GOOGLE_KEY=$(prompt_secret "Google AI Studio API key")
+    if [ -n "$GOOGLE_KEY" ]; then
+        GOOGLE_MODEL=$(prompt_value "Gemini model" "gemini-2.5-flash")
+        success "Google AI Studio configured"
+    else
+        warn "No Google AI Studio key provided, skipping"
+    fi
+fi
+echo ""
+
+# --- Cloudflare Tunnel ---
+CF_TUNNEL_TOKEN=""
+CF_WEBHOOK_URL=""
+if confirm "Configure Cloudflare Tunnel (secure webhook exposure)?" "n"; then
+    echo ""
+    echo "  1. Cloudflare dashboard > Zero Trust > Networks > Tunnels > Create tunnel"
+    echo "  2. Copy the install token (starts with eyJ...)"
+    echo "  3. Under 'Public Hostname' tab: point <subdomain>.<your-domain> -> http://localhost:18791"
+    echo ""
+    CF_TUNNEL_TOKEN=$(prompt_secret "Cloudflare Tunnel token")
+    if [ -n "$CF_TUNNEL_TOKEN" ]; then
+        mkdir -p "$HOME_DIR/.cloudflared"
+        echo "$CF_TUNNEL_TOKEN" > "$HOME_DIR/.cloudflared/token"
+        chmod 700 "$HOME_DIR/.cloudflared"
+        chmod 600 "$HOME_DIR/.cloudflared/token"
+        success "Cloudflare Tunnel token saved to ~/.cloudflared/token"
+
+        CF_WEBHOOK_URL=$(prompt_value "Public webhook URL (e.g. https://pico.yourdomain.com)" "")
+        if [ -n "$CF_WEBHOOK_URL" ]; then
+            echo "$CF_WEBHOOK_URL" > "$HOME_DIR/.cloudflared/webhook-url"
+            chmod 600 "$HOME_DIR/.cloudflared/webhook-url"
+            success "Webhook URL saved to ~/.cloudflared/webhook-url"
+        fi
+    else
+        warn "No Cloudflare token provided, skipping"
+    fi
+fi
+echo ""
+
 # --- Groq ---
 GROQ_KEY=""
 if confirm "Configure Groq (free, fast inference + STT)?" "n"; then
@@ -366,17 +413,38 @@ if confirm "Configure Groq (free, fast inference + STT)?" "n"; then
 fi
 echo ""
 
-# Create ~/.picoclaw_keys for voice scripts
-if [ -n "$AZURE_KEY" ] || [ -n "$GROQ_KEY" ]; then
-    cat > "$HOME_DIR/.picoclaw_keys" << KEYS
-AZURE_OPENAI_API_KEY="${AZURE_KEY}"
-AZURE_OPENAI_BASE_URL="${AZURE_URL}"
-AZURE_WHISPER_DEPLOYMENT="${AZURE_WHISPER}"
-GROQ_KEY="${GROQ_KEY}"
+# Auto-generate webhook security secrets (only if not already set)
+WEBHOOK_TOKEN="${WEBHOOK_TOKEN:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')}"
+WEBHOOK_HMAC_SECRET="${WEBHOOK_HMAC_SECRET:-$(python3 -c 'import secrets; print(secrets.token_hex(32))')}"
+GITHUB_WEBHOOK_SECRET="${GITHUB_WEBHOOK_SECRET:-$(python3 -c 'import secrets; print(secrets.token_hex(32))')}"
+
+# Create ~/.picoclaw_keys (voice + google + cloudflare + webhook security)
+cat > "$HOME_DIR/.picoclaw_keys" << KEYS
+AZURE_OPENAI_API_KEY="${AZURE_KEY:-}"
+AZURE_OPENAI_BASE_URL="${AZURE_URL:-}"
+AZURE_WHISPER_DEPLOYMENT="${AZURE_WHISPER:-}"
+GROQ_KEY="${GROQ_KEY:-}"
+GOOGLE_AI_STUDIO_API_KEY="${GOOGLE_KEY:-}"
+CLOUDFLARE_TUNNEL_TOKEN="${CF_TUNNEL_TOKEN:-}"
+WEBHOOK_PUBLIC_URL="${CF_WEBHOOK_URL:-}"
+WEBHOOK_TOKEN="${WEBHOOK_TOKEN}"
+WEBHOOK_HMAC_SECRET="${WEBHOOK_HMAC_SECRET}"
+GITHUB_WEBHOOK_SECRET="${GITHUB_WEBHOOK_SECRET}"
+RATE_LIMIT_PER_MIN="120"
 KEYS
-    chmod 600 "$HOME_DIR/.picoclaw_keys"
-    success "Voice API keys saved to ~/.picoclaw_keys"
-fi
+chmod 600 "$HOME_DIR/.picoclaw_keys"
+success "Keys saved to ~/.picoclaw_keys (chmod 600)"
+
+# Create webhook-start.sh wrapper that sources env before running
+cat > "$BIN_DIR/webhook-start.sh" << 'WEBHOOKSH'
+#!/data/data/com.termux/files/usr/bin/bash
+set -a
+. $HOME/.picoclaw_keys
+set +a
+exec python3 $HOME/bin/webhook-server.py
+WEBHOOKSH
+chmod 700 "$BIN_DIR/webhook-start.sh"
+success "Webhook server wrapper created"
 
 # ---------------------------------------------------------------------------
 # Step 8: Prompt for Telegram bot token
@@ -401,18 +469,41 @@ if confirm "Configure Telegram bot?" "n"; then
 fi
 echo ""
 
-# Create security.yml
+# Create security.yml (v0.2.6: API keys MUST be here or gateway exits silently)
 info "Creating security.yml..."
+SEC_MODEL_LIST=""
+if [ -n "$AZURE_KEY" ]; then
+    SEC_MODEL_LIST="${SEC_MODEL_LIST}
+  azure-gpt4o:0:
+    api_keys:
+      - \"${AZURE_KEY}\""
+fi
+if [ -n "$OLLAMA_KEY" ]; then
+    SEC_MODEL_LIST="${SEC_MODEL_LIST}
+  ${OLLAMA_MODEL}:0:
+    api_keys:
+      - \"${OLLAMA_KEY}\""
+fi
+if [ -n "$GOOGLE_KEY" ]; then
+    SEC_MODEL_LIST="${SEC_MODEL_LIST}
+  ${GOOGLE_MODEL}:0:
+    api_keys:
+      - \"${GOOGLE_KEY}\""
+fi
+
 cat > "$PICOCLAW_DIR/.security.yml" << SECYML
 channels:
   telegram:
     token: "${TELEGRAM_TOKEN}"
+model_list:${SEC_MODEL_LIST}
 voice:
   groq_api_key: "${GROQ_KEY}"
   elevenlabs_api_key: ""
+web: {}
+skills: {}
 SECYML
 chmod 600 "$PICOCLAW_DIR/.security.yml"
-success "Security config saved"
+success "Security config saved (with model API keys for v0.2.6)"
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -455,7 +546,10 @@ if [ -n "$AZURE_KEY" ] && [ -n "$AZURE_URL" ]; then
     PRIMARY_BASE_URL="$AZURE_URL"
 fi
 
-# Build providers JSON
+# Build providers JSON (PicoClaw v0.2.6 strips this during migration, but kept for v0.2.4 compat)
+# Note: PicoClaw only accepts these provider types: openai, azure, anthropic, groq, antigravity.
+# Google AI Studio uses the OpenAI-compatible endpoint, so models are registered with the
+# `openai/` prefix in model_list (api_base points to Google's endpoint per-model).
 PROVIDERS="{\"openai\":{\"base_url\":\"https://ollama.com/v1\",\"api_key\":\"${OLLAMA_KEY}\"}}"
 if [ -n "$AZURE_KEY" ]; then
     PROVIDERS=$(echo "$PROVIDERS" | jq --arg key "$AZURE_KEY" --arg url "$AZURE_URL" \
@@ -465,6 +559,7 @@ if [ -n "$GROQ_KEY" ]; then
     PROVIDERS=$(echo "$PROVIDERS" | jq --arg key "$GROQ_KEY" \
         '. + {"groq":{"base_url":"https://api.groq.com/openai/v1","api_key":$key}}')
 fi
+# Google AI Studio is NOT added here — it's only in model_list via the OpenAI-compatible prefix.
 
 # Build model_list
 MODEL_LIST="[]"
@@ -477,6 +572,11 @@ if [ -n "$OLLAMA_KEY" ]; then
     MODEL_LIST=$(echo "$MODEL_LIST" | jq --arg name "$OLLAMA_MODEL" --arg model "openai/${OLLAMA_MODEL}" \
         --arg key "$OLLAMA_KEY" \
         '. + [{"model_name":$name,"model":$model,"api_key":$key,"api_base":"https://ollama.com/v1"}]')
+fi
+if [ -n "$GOOGLE_KEY" ]; then
+    MODEL_LIST=$(echo "$MODEL_LIST" | jq --arg name "$GOOGLE_MODEL" --arg model "openai/${GOOGLE_MODEL}" \
+        --arg key "$GOOGLE_KEY" \
+        '. + [{"model_name":$name,"model":$model,"api_key":$key,"api_base":"https://generativelanguage.googleapis.com/v1beta/openai"}]')
 fi
 
 # Build channels
@@ -520,8 +620,8 @@ cat > "$PICOCLAW_DIR/config.json" << CONFIGEOF
   },
   "model_list": $(echo "$MODEL_LIST" | jq .),
   "gateway": {
-    "host": "",
-    "port": 0,
+    "host": "127.0.0.1",
+    "port": 18790,
     "hot_reload": false
   },
   "tools": {
@@ -606,6 +706,55 @@ deploy_script "watchdog.sh"         "$BIN_DIR/watchdog.sh"
 deploy_script "scrape.sh"           "$BIN_DIR/scrape.sh"
 deploy_script "switch-model.sh"     "$BIN_DIR/switch-model.sh"
 deploy_script "auth-antigravity.sh" "$BIN_DIR/auth-antigravity.sh"
+deploy_script "remote-device.sh"    "$BIN_DIR/remote-device.sh"
+deploy_script "notifications.sh"    "$BIN_DIR/notifications.sh"
+deploy_script "detect-ip.sh"        "$BIN_DIR/detect-ip.sh"
+deploy_script "adb-connect.sh"      "$BIN_DIR/adb-connect.sh"
+deploy_script "auto-failover.sh"    "$BIN_DIR/auto-failover.sh"
+# --- Power tools (OpenClaw parity) ---
+deploy_script "pdf-tool.sh"         "$BIN_DIR/pdf-tool.sh"
+deploy_script "image-tool.sh"       "$BIN_DIR/image-tool.sh"
+deploy_script "document-tool.sh"    "$BIN_DIR/document-tool.sh"
+deploy_script "media-tool.sh"       "$BIN_DIR/media-tool.sh"
+deploy_script "qr-tool.sh"          "$BIN_DIR/qr-tool.sh"
+deploy_script "rag-tool.sh"         "$BIN_DIR/rag-tool.sh"
+deploy_script "code-run.sh"         "$BIN_DIR/code-run.sh"
+deploy_script "wakeup.sh"           "$BIN_DIR/wakeup.sh"
+deploy_script "workflow.sh"         "$BIN_DIR/workflow.sh"
+deploy_script "webhook-server.py"   "$BIN_DIR/webhook-server.py"
+deploy_script "browser-tool.sh"     "$BIN_DIR/browser-tool.sh"
+deploy_script "cloudflare-tool.sh"  "$BIN_DIR/cloudflare-tool.sh"
+deploy_script "cost-tracker.sh"     "$BIN_DIR/cost-tracker.sh"
+deploy_script "audit-log.sh"        "$BIN_DIR/audit-log.sh"
+deploy_script "memory-ingest.sh"    "$BIN_DIR/memory-ingest.sh"
+deploy_script "context-inject.sh"   "$BIN_DIR/context-inject.sh"
+deploy_script "agent-self.sh"       "$BIN_DIR/agent-self.sh"
+deploy_script "channels-tool.sh"    "$BIN_DIR/channels-tool.sh"
+deploy_script "system-tool.sh"      "$BIN_DIR/system-tool.sh"
+deploy_script "network-recovery.sh" "$BIN_DIR/network-recovery.sh"
+deploy_script "webhook-manage.sh"   "$BIN_DIR/webhook-manage.sh"
+deploy_script "log-rotate.sh"       "$BIN_DIR/log-rotate.sh"
+deploy_script "form-handler.sh"     "$BIN_DIR/form-handler.sh"
+
+# Install cloudflared binary (for Cloudflare Tunnel)
+if [ ! -x "$BIN_DIR/cloudflared" ]; then
+    info "Installing cloudflared..."
+    curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 \
+        -o "$BIN_DIR/cloudflared" && chmod +x "$BIN_DIR/cloudflared" || \
+        warn "cloudflared download failed (manual: download from GitHub)"
+fi
+
+# Deploy backup monitor (restarts crond/sshd — used by termux-job-scheduler)
+cat > "$BIN_DIR/backup-monitor.sh" << 'BKMON'
+#!/data/data/com.termux/files/usr/bin/bash
+export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
+export PATH="$HOME/bin:$PATH"
+pgrep crond >/dev/null 2>&1 || crond
+pgrep -x sshd >/dev/null 2>&1 || sshd
+termux-wake-lock 2>/dev/null
+BKMON
+chmod 700 "$BIN_DIR/backup-monitor.sh"
+echo "  $BIN_DIR/backup-monitor.sh"
 
 # Deploy boot script
 deploy_script "boot-picoclaw.sh"    "$BOOT_DIR/start-picoclaw.sh"
@@ -670,11 +819,16 @@ echo ""
 # ---------------------------------------------------------------------------
 info "Step 13/15: Setting up boot script and watchdog..."
 
-# Install watchdog cron (idempotent)
-(crontab -l 2>/dev/null | grep -v watchdog; echo "* * * * * $BIN_DIR/watchdog.sh >> $HOME_DIR/watchdog.log 2>&1") | crontab -
-
-# Install hourly media cleanup
-(crontab -l 2>/dev/null | grep -v media-cleanup; echo "0 * * * * $BIN_DIR/media-cleanup.sh >> /dev/null 2>&1") | crontab -
+# Install full cron schedule
+cat > /tmp/picoclaw-crontab << CRONTAB
+* * * * * $BIN_DIR/watchdog.sh >> $HOME_DIR/watchdog.log 2>&1
+*/2 * * * * $BIN_DIR/memory-ingest.sh >> $HOME_DIR/memory-ingest.log 2>&1
+0 * * * * $BIN_DIR/media-cleanup.sh >> /dev/null 2>&1
+15 * * * * $BIN_DIR/log-rotate.sh >> /dev/null 2>&1
+0 */6 * * * df -h /data/data/com.termux 2>/dev/null | awk 'NR==2{if (\$5+0>90) print "[DISK] " \$5}' >> $HOME_DIR/watchdog.log 2>&1
+0 0 * * 0 find $WORKSPACE_DIR/sessions -type f -mtime +7 -delete 2>/dev/null
+CRONTAB
+crontab /tmp/picoclaw-crontab && rm /tmp/picoclaw-crontab
 
 # Start crond if not running
 pgrep crond >/dev/null 2>&1 || crond 2>/dev/null || true
@@ -685,9 +839,24 @@ pgrep -x sshd >/dev/null 2>&1 || sshd 2>/dev/null || true
 # Acquire wake lock
 termux-wake-lock 2>/dev/null || true
 
-success "Boot script and watchdog configured"
-echo "  Watchdog: runs every minute via cron"
-echo "  Media cleanup: runs every hour via cron"
+# Setup termux-job-scheduler as backup (survives crond death)
+if check_command termux-job-scheduler; then
+    termux-job-scheduler --job-id 1 --period-ms 300000 --script "$BIN_DIR/backup-monitor.sh" 2>/dev/null || true
+fi
+
+# Harden file permissions
+chmod 600 "$PICOCLAW_DIR/config.json" "$PICOCLAW_DIR/.security.yml" 2>/dev/null || true
+chmod 600 "$HOME_DIR/.picoclaw_keys" "$HOME_DIR/.device_pin" 2>/dev/null || true
+chmod 700 "$BIN_DIR"/*.sh "$BIN_DIR"/*.py "$HOME_DIR/picoclaw" "$HOME_DIR/picoclaw.bin" 2>/dev/null || true
+chmod 700 "$BOOT_DIR/start-picoclaw.sh" 2>/dev/null || true
+
+success "Boot, watchdog, cron, and security configured"
+echo "  Watchdog: every minute (sshd, gateway, ADB)"
+echo "  Media cleanup: every hour"
+echo "  Disk monitor: every 6 hours (alert >90%)"
+echo "  Session cleanup: weekly (>7 days)"
+echo "  Backup monitor: every 5 min (termux-job-scheduler)"
+echo "  File permissions: 700 scripts, 600 secrets"
 echo "  Boot script: ~/.termux/boot/start-picoclaw.sh"
 echo ""
 
@@ -696,18 +865,18 @@ echo ""
 # ---------------------------------------------------------------------------
 info "Step 14/15: Setting up ADB self-bridge..."
 
-# Try to enable ADB TCP (may fail without prior USB ADB setup)
+# Try to connect ADB self-bridge (TCP 5555 must be enabled from a computer first)
+# NOTE: setprop/stop/start adbd require root — do NOT use from Termux.
+# ADB TCP is enabled once from a computer via: adb tcpip 5555 (or grant-permissions.sh)
 ADB_OK=false
 if check_command adb; then
     adb start-server 2>/dev/null || true
-    setprop service.adb.tcp.port 5555 2>/dev/null || true
-    (stop adbd 2>/dev/null; start adbd 2>/dev/null) || true
-    sleep 2
     if adb connect localhost:5555 2>/dev/null | grep -q "connected"; then
         ADB_OK=true
         success "ADB self-bridge connected (localhost:5555)"
     else
-        warn "ADB self-bridge not available (requires prior USB ADB setup)"
+        warn "ADB self-bridge not available yet."
+        warn "Run from a computer: bash utils/grant-permissions.sh (USB or wireless debugging)"
     fi
 else
     warn "adb not installed -- install with: pkg install android-tools"
@@ -726,11 +895,11 @@ fi
 tmux kill-session -t picoclaw 2>/dev/null || true
 sleep 1
 
-# Start gateway in tmux
+# Start gateway in tmux (SSL_CERT_FILE explicit for reliability)
 if check_command tmux; then
     tmux new-session -d -s picoclaw \
-        "$HOME_DIR/picoclaw.bin gateway > $PICOCLAW_DIR/gateway.log 2>&1"
-    sleep 3
+        "SSL_CERT_FILE=$CERT_PATH $HOME_DIR/picoclaw.bin gateway > $PICOCLAW_DIR/gateway.log 2>&1"
+    sleep 5
 
     if tmux has-session -t picoclaw 2>/dev/null; then
         success "Gateway started in tmux session 'picoclaw'"
@@ -749,19 +918,22 @@ echo ""
 # ---------------------------------------------------------------------------
 info "Step 15/15: Android permissions"
 echo ""
-echo -e "  ${YELLOW}IMPORTANT:${NC} For full device control (camera, mic, UI automation),"
-echo "  you need to grant Android permissions from a computer with USB ADB."
+echo -e "  ${YELLOW}IMPORTANT:${NC} For full device control (camera, mic, UI automation,"
+echo "  notifications, SMS), grant permissions from a computer."
 echo ""
-echo "  Connect the phone via USB to a computer and run:"
+echo -e "  ${BOLD}Option A (wireless, no cable):${NC}"
+echo "    1. Settings > Developer Options > Wireless Debugging > Pair device"
+echo "    2. On your computer: adb pair <IP>:<PAIR_PORT> <CODE>"
+echo "    3. Find the debug port on the Wireless Debugging screen"
+echo "    4. On your computer: adb connect <IP>:<DEBUG_PORT>"
+echo "    5. bash utils/grant-permissions.sh"
 echo ""
-echo -e "    ${BOLD}bash utils/grant-permissions.sh${NC}"
+echo -e "  ${BOLD}Option B (USB cable):${NC}"
+echo "    1. Connect phone via USB"
+echo "    2. bash utils/grant-permissions.sh"
 echo ""
-echo "  Or from the PicoClaw repo:"
-echo ""
-echo -e "    ${BOLD}make grant-permissions${NC}"
-echo ""
-echo "  This is a one-time setup. PicoClaw works without it, but camera,"
-echo "  microphone, and UI automation features will be limited."
+echo "  This grants 44 permissions + 40 appops + ADB TCP + battery whitelist."
+echo "  One-time setup. See: docs/01-hardware-setup.md"
 echo ""
 
 # ---------------------------------------------------------------------------

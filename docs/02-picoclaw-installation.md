@@ -106,7 +106,7 @@ Location: `~/.picoclaw/config.json`
 
 This is the main configuration file containing providers, models, tools, and channel settings. A sanitized template is at [`config/config.template.json`](../config/config.template.json).
 
-**Critical quirk**: PicoClaw v0.2.4 requires `api_key` and `api_base` in BOTH the `providers` section AND each `model_list` entry. Missing either causes:
+**Critical quirk**: PicoClaw v0.2.4+ requires `api_key` and `api_base` in BOTH the `providers` section AND each `model_list` entry. Missing either causes:
 
 ```
 api_key or api_base is required for HTTP-based protocol "openai"
@@ -137,15 +137,40 @@ Minimal example:
 
 Location: `~/.picoclaw/.security.yml`
 
-Stores sensitive tokens (Telegram bot token, API keys for voice):
+Stores sensitive tokens (Telegram bot token, API keys for voice, and model API keys):
 
 ```yaml
 channels:
   telegram:
     token: "<TELEGRAM_BOT_TOKEN>"
+model_list:
+  azure-gpt4o:0:
+    api_keys:
+      - "<AZURE_API_KEY>"
+  gpt-oss:120b:0:
+    api_keys:
+      - "<OLLAMA_API_KEY>"
 voice:
   groq_api_key: "<GROQ_API_KEY>"
   elevenlabs_api_key: ""
+web: {}
+skills: {}
+```
+
+> **v0.2.6 critical**: The `model_list` section with API keys is **required**. Without it, the gateway exits silently (writes PID file, then removes it and exits with code 1 — no error message). The first `picoclaw status` call auto-migrates config from v1 to v2, but **wipes the `model_list` API keys in security.yml**. Always verify security.yml after migration.
+
+### Gateway port (v0.2.6+)
+
+The `gateway.port` must be set to a valid port number (1-65535). Port `0` was accepted in v0.2.4 but is rejected in v0.2.6:
+
+```json
+{
+  "gateway": {
+    "host": "127.0.0.1",
+    "port": 18790,
+    "hot_reload": false
+  }
+}
 ```
 
 ---

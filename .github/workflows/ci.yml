@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-shell:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Check shell script syntax
+        run: |
+          echo "=== Syntax check (bash -n) ==="
+          errors=0
+          for f in utils/*.sh; do
+            if bash -n "$f" 2>&1; then
+              echo "  OK: $f"
+            else
+              echo "  FAIL: $f"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ $errors -gt 0 ]; then
+            echo "::error::$errors shell scripts have syntax errors"
+            exit 1
+          fi
+
+      - name: ShellCheck (advisory)
+        continue-on-error: true
+        run: |
+          shellcheck --severity=error utils/*.sh || true
+
+  lint-python:
+    name: Lint Python Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Python syntax
+        run: |
+          echo "=== Syntax check (py_compile) ==="
+          errors=0
+          for f in scripts/*.py; do
+            if python -m py_compile "$f" 2>&1; then
+              echo "  OK: $f"
+            else
+              echo "  FAIL: $f"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ $errors -gt 0 ]; then
+            echo "::error::$errors Python scripts have syntax errors"
+            exit 1
+          fi
+
+  validate-config:
+    name: Validate Config Templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON templates
+        run: |
+          echo "=== JSON validation ==="
+          for f in config/*.json; do
+            if python -m json.tool "$f" > /dev/null 2>&1; then
+              echo "  OK: $f"
+            else
+              echo "  FAIL: $f"
+              exit 1
+            fi
+          done
+
+      - name: Validate YAML templates
+        run: |
+          pip install pyyaml
+          python -c "
+          import yaml, sys, glob
+          for f in glob.glob('config/*.yml'):
+              try:
+                  yaml.safe_load(open(f))
+                  print(f'  OK: {f}')
+              except Exception as e:
+                  print(f'  FAIL: {f}: {e}')
+                  sys.exit(1)
+          "
+
+  check-secrets:
+    name: Check for Leaked Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for potential secrets
+        run: |
+          echo "=== Scanning for secrets ==="
+          PATTERNS=(
+            'sk-[a-zA-Z0-9]{20,}'
+            'gsk_[a-zA-Z0-9]{20,}'
+            'AKIA[A-Z0-9]{16}'
+            '[0-9]+:AA[A-Za-z0-9_-]{30,}'
+          )
+          found=0
+          for pattern in "${PATTERNS[@]}"; do
+            matches=$(grep -rnE "$pattern" --include="*.py" --include="*.sh" --include="*.json" --include="*.yml" --include="*.md" . 2>/dev/null | grep -v '.env.example' | grep -v 'PLACEHOLDER' | grep -v 'template' | grep -v 'YOUR_' || true)
+            if [ -n "$matches" ]; then
+              echo "::warning::Potential secret pattern found: $pattern"
+              echo "$matches"
+              found=$((found + 1))
+            fi
+          done
+          if [ $found -gt 0 ]; then
+            echo "::error::Potential secrets detected in $found patterns. Review before merging."
+            exit 1
+          fi
+          echo "  No secrets found."
+
+  docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for broken internal links
+        run: |
+          echo "=== Checking internal doc links ==="
+          errors=0
+          for md in docs/*.md README.md CONTRIBUTING.md SECRETS.md; do
+            links=$(grep -oP '\[.*?\]\((?!https?://)(.*?)\)' "$md" 2>/dev/null | grep -oP '\(.*?\)' | tr -d '()' | sed 's/#.*//' | sort -u)
+            dir=$(dirname "$md")
+            for link in $links; do
+              target="$dir/$link"
+              if [ -n "$link" ] && [ ! -f "$target" ] && [ ! -f "$link" ]; then
+                echo "  BROKEN: $md -> $link"
+                errors=$((errors + 1))
+              fi
+            done
+          done
+          if [ $errors -gt 0 ]; then
+            echo "::warning::$errors broken internal links found"
+          else
+            echo "  All internal links valid."
+          fi

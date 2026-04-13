@@ -33,6 +33,7 @@ graph LR
 | Apps | `am start -n pkg/.Activity` | Launch, stop, uninstall apps |
 | Settings | `settings put system screen_brightness 128` | Read/write Android settings |
 | System | `dumpsys battery` | Battery, WiFi, memory, network stats |
+| Notifications | `dumpsys notification --noredact` | Read all device notifications (via `~/bin/notifications.sh`) |
 | Network | `cat /proc/net/arp` | MAC addresses of all devices on network |
 | Logs | `logcat -d -t 20` | Android system logs |
 | Packages | `pm list packages` | List all installed apps |
@@ -47,15 +48,29 @@ graph LR
 ~/bin/adb-enable.sh
 ```
 
-### Persistence
+### Reading Notifications
 
-The boot script re-enables ADB TCP on every reboot:
+Android restricts the notification listener API to apps manually toggled in Settings. PicoClaw uses ADB shell instead, which has unrestricted access:
 
 ```bash
-setprop service.adb.tcp.port 5555
-stop adbd; start adbd
+~/bin/notifications.sh              # JSON list of all notifications
+~/bin/notifications.sh --unread     # Only unread (seen=false)
+~/bin/notifications.sh --count      # Count
+~/bin/notifications.sh --summary    # One-line per notification
+```
+
+This is more reliable than `termux-notification-list` and requires no special permission.
+
+### Persistence
+
+The boot script reconnects the ADB self-bridge on every reboot:
+
+```bash
+adb start-server
 adb connect localhost:5555
 ```
+
+> **Note**: `setprop`/`stop adbd`/`start adbd` require root and are NOT used. ADB TCP must be enabled once from a computer via `adb tcpip 5555` (the `grant-permissions.sh` script does this). With wireless debugging enabled in Android settings, ADB TCP persists across reboots.
 
 The watchdog checks ADB connectivity every minute and reconnects if needed.
 

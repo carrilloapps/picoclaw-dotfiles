@@ -51,6 +51,12 @@
   },
   "model_list": [
     {
+      "model_name": "gemini-2.5-flash",
+      "model": "openai/gemini-2.5-flash",
+      "api_key": "<YOUR_GOOGLE_AI_STUDIO_API_KEY>",
+      "api_base": "https://generativelanguage.googleapis.com/v1beta/openai"
+    },
+    {
       "model_name": "<DEFAULT_MODEL>",
       "model": "<PROVIDER/MODEL_ID>",
       "api_key": "<YOUR_OLLAMA_API_KEY>",

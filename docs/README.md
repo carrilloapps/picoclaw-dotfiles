@@ -6,7 +6,8 @@ Step-by-step guides for deploying and configuring PicoClaw on an Android phone v
 
 | # | Guide | Topics |
 | - | ----- | ------ |
-| 01 | [Hardware Setup](01-hardware-setup.md) | Device requirements, Termux install, SSH, ADB setup |
+| 00 | [Termux & SSH Setup](00-termux-ssh-setup.md) | Termux install, SSH server, find user/IP, connect from workstation |
+| 01 | [Hardware Setup](01-hardware-setup.md) | Device requirements, Termux apps, ADB setup |
 | 02 | [PicoClaw Installation](02-picoclaw-installation.md) | Binary download, TLS fix, config, AGENT.md generation |
 | 03 | [Providers Setup](03-providers-setup.md) | Azure, Ollama, Groq, Antigravity, model switching |
 | 04 | [Telegram Integration](04-telegram-integration.md) | Bot setup, voice pipeline (STT + TTS), 6 voices |
@@ -15,6 +16,13 @@ Step-by-step guides for deploying and configuring PicoClaw on an Android phone v
 | 07 | [Skills & MCP](07-skills-and-mcp.md) | 31 skills, 4 MCP servers, 146 tools |
 | 08 | [Advanced Features](08-advanced-features.md) | Web scraping, knowledge base, cron jobs, media |
 | 09 | [Remote Devices](09-remote-devices.md) | Control Android/iPhone/RPi/USB via OTG |
+| 10 | [Complete Setup Guide](10-complete-setup-guide.md) | End-to-end deployment from zero to running |
+| 11 | [Power Tools](11-power-tools.md) | 10 specialized tools: PDF, image, RAG, code-run, workflows, webhooks, media |
+| 12 | [vs OpenClaw](12-vs-openclaw.md) | Detailed capability comparison and scoring |
+| 13 | [Central Memory](13-central-memory.md) | RAG-as-memory architecture, hybrid search, Cloudflare Tunnel |
+| 14 | [Self-Administration](14-self-administration.md) | Live channel management + backup/restore/upgrade/pkg via chat |
+| 15 | [Webhook Security & Activation](15-webhook-security.md) | Complete security setup + Cloudflare Tunnel activation |
+| 16 | [Resilience & Dynamic Webhooks](16-resilience-and-dynamic-webhooks.md) | Reboot recovery, multi-network, chat-created forms/routes |
 
 ## Quick Start
 

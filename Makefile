@@ -73,6 +73,10 @@ help:
 	@echo "    make gateway-logs     Show recent gateway logs"
 	@echo "    make gateway-follow   Follow gateway logs in real-time"
 	@echo ""
+	@echo "  LLM PROVIDER FAILOVER"
+	@echo "    make failover-check   Check which provider is best available (dry run)"
+	@echo "    make failover         Run failover: switch to best available + restart gateway"
+	@echo ""
 	@echo "  DIAGNOSTICS"
 	@echo "    make status           Quick PicoClaw status check"
 	@echo "    make info             Full device diagnostic report"
@@ -221,6 +225,17 @@ gateway-logs: $(ENV_FILE)
 
 gateway-follow: $(ENV_FILE)
 	@$(PYTHON) $(SCRIPTS)/gateway.py logs -f
+
+# ---------------------------------------------------------------------------
+# LLM provider failover
+# ---------------------------------------------------------------------------
+.PHONY: failover failover-check
+
+failover: $(ENV_FILE)
+	@$(PYTHON) $(SCRIPTS)/connect.py "~/bin/auto-failover.sh"
+
+failover-check: $(ENV_FILE)
+	@$(PYTHON) $(SCRIPTS)/connect.py "~/bin/auto-failover.sh --check"
 
 # ---------------------------------------------------------------------------
 # Diagnostics

@@ -23,8 +23,7 @@ sequenceDiagram
 
     BOOT->>SSHD: Start SSH server
     BOOT->>WAKE: termux-wake-lock
-    BOOT->>ADB: setprop + stop/start adbd
-    Note over ADB: Wait 3s, then adb connect localhost:5555
+    BOOT->>ADB: adb start-server + connect localhost:5555
     Note over ADB: Retry in background after 15s
     BOOT->>GW: tmux new-session -d -s picoclaw
     BOOT->>CRON: Install watchdog cron (every minute)
@@ -64,7 +63,7 @@ flowchart TD
     WAKE["Re-acquire wake lock\ntermux-wake-lock"] --> ADB
 
     ADB["Check ADB bridge\nadb -s localhost:5555 shell echo ok"] -->|connected| GW
-    ADB -->|failed| RADB["setprop tcp.port 5555\nstop/start adbd\nadb connect localhost:5555"]
+    ADB -->|failed| RADB["adb start-server\nadb connect localhost:5555\nverify connection"]
     RADB --> LOG2["Log: adb:RECONNECTED\n+ push notification"]
     LOG2 --> GW
 
@@ -91,7 +90,7 @@ flowchart TD
 | ------- | ----- | -------- |
 | **sshd** | `pgrep -x sshd` | `sshd` |
 | **Wake lock** | (idempotent) | `termux-wake-lock` |
-| **ADB bridge** | `adb -s localhost:5555 shell echo ok` | Re-enable TCP + reconnect |
+| **ADB bridge** | `adb -s localhost:5555 shell echo ok` | `adb connect localhost:5555` (no root) |
 | **Gateway** | `tmux has-session -t picoclaw` + `pgrep -f "picoclaw.bin gateway"` | Kill stale tmux + restart |
 
 The watchdog handles two gateway failure modes:
@@ -109,9 +108,25 @@ Restart events are appended to `~/watchdog.log`:
 
 ---
 
+## 6 Layers of Resilience
+
+PicoClaw uses defense-in-depth with 6 independent recovery layers:
+
+| Layer | Mechanism | Frequency | What it recovers |
+|-------|-----------|-----------|------------------|
+| 1 | **Termux:Boot** (`start-picoclaw.sh`) | Every device boot | sshd, wake lock, ADB, gateway, crond |
+| 2 | **Watchdog** (`watchdog.sh` via cron) | Every 60 seconds | sshd, wake lock, ADB, gateway |
+| 3 | **termux-job-scheduler** (`backup-monitor.sh`) | Every 5 minutes | crond, sshd, wake lock |
+| 4 | **.bashrc guards** | Every interactive shell | sshd, crond |
+| 5 | **Wake lock** | Permanent | Prevents Android from killing Termux |
+| 6 | **LLM auto-failover** (`auto-failover.sh`) | Boot + on 429/500/503 errors | LLM provider (Azure → Ollama → Antigravity → Google) |
+
+- Layer 3 is the safety net for Layer 2: if `crond` dies (which stops the watchdog), `termux-job-scheduler` runs at the OS level and restarts it.
+- Layer 6 handles **cloud-side outages**: even with all services running locally, if the active LLM provider returns 429/500/503, the watchdog detects it in the gateway log and automatically switches to the next healthy provider. See [03 - Providers Setup](03-providers-setup.md#automatic-provider-failover).
+
 ## termux-job-scheduler
 
-In addition to the cron-based watchdog, `termux-job-scheduler` runs the watchdog at the Android OS level. This means monitoring continues even if Termux's cron daemon is killed by Android's process manager.
+Runs `~/bin/backup-monitor.sh` at the Android OS level every 5 minutes. This means monitoring continues even if Termux's cron daemon is killed by Android's process manager.
 
 ---
 
@@ -132,10 +147,11 @@ This ensures the device owner is aware of service recovery events even when not 
 | Schedule | Task | Description |
 | -------- | ---- | ----------- |
 | Every minute | `watchdog.sh` | Monitor + restart sshd, gateway, ADB |
-| Every hour | `media-cleanup.sh` | Delete temp files older than 60 minutes |
-| Daily 8 AM | Morning briefing | Battery, storage, network, weather summary |
-| Sunday midnight | Session cleanup | Delete `.jsonl` session files older than 7 days |
-| Every 6 hours | Disk monitor | Android notification if free space < 2 GB |
+| Every hour | `media-cleanup.sh` | Delete temp media files older than 60 minutes |
+| Every 6 hours | Disk monitor (`df`) | Log warning if disk usage exceeds 90% |
+| Sunday midnight | Session cleanup | Delete session files older than 7 days |
+| Every 5 min | `backup-monitor.sh` | OS-level: restart crond + sshd if dead (via termux-job-scheduler) |
+| On boot + on error | `auto-failover.sh` | LLM provider health check; switches to next healthy provider automatically |
 
 ---
 

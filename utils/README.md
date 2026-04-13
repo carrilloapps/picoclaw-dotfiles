@@ -30,6 +30,10 @@ Device-side files that are deployed to the Android/Termux device. These are the 
 | `switch-model.sh` | `~/bin/switch-model.sh` | Hot-swap LLM model from chat or CLI across all 25 models with aliases and recommendations |
 | `media-cleanup.sh` | `~/bin/media-cleanup.sh` | Hourly cron job: deletes temp media files (screenshots, recordings, TTS audio) older than 60 minutes |
 | `remote-device.sh` | `~/bin/remote-device.sh` | USB OTG device control: Android (ADB), Raspberry Pi (SSH), USB storage, USB Ethernet |
+| `notifications.sh` | `~/bin/notifications.sh` | Read device notifications via ADB dumpsys (no listener permission needed) |
+| `detect-ip.sh` | `~/bin/detect-ip.sh` | Auto-detect device IP via 5 methods (Termux:API, ADB, ifconfig, ip, getprop) |
+| `adb-connect.sh` | `~/bin/adb-connect.sh` | Smart ADB self-bridge: auto-detects port (5555 → getprop → scan 5555-5559) |
+| `auto-failover.sh` | `~/bin/auto-failover.sh` | LLM provider health check: probes each in priority order (Azure → Ollama → Antigravity → Google), updates config + restarts gateway on outage |
 | `install.sh` | Run from Termux | One-click installer: packages, binary, config, scripts, MCP, gateway |
 
 ---

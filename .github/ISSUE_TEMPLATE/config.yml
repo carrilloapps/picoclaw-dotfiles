@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/carrilloapps/picoclaw-dotfiles/tree/main/docs
+    about: Check the 11 step-by-step guides before opening an issue
+  - name: Complete Setup Guide
+    url: https://github.com/carrilloapps/picoclaw-dotfiles/blob/main/docs/10-complete-setup-guide.md
+    about: End-to-end setup from zero to running with troubleshooting
+  - name: Discussions
+    url: https://github.com/carrilloapps/picoclaw-dotfiles/discussions
+    about: Ask questions, share ideas, or show your setup
+  - name: PicoClaw Upstream
+    url: https://github.com/sipeed/picoclaw/issues
+    about: For issues with the PicoClaw binary itself (not this dotfiles repo)

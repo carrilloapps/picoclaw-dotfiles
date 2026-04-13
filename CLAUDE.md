@@ -8,11 +8,11 @@
 
 PicoClaw is an ultra-lightweight AI assistant (Go binary, ~27 MB) running on a **Xiaomi Redmi Note 10 Pro** (Snapdragon 732G) via Termux. Cloud LLM providers handle inference.
 
-- **Repo**: `D:\Desarrollo\AI\PicoClaw` (57 files)
+- **Repo**: `D:\Desarrollo\AI\PicoClaw` (64 files)
 - **Device**: Xiaomi Redmi Note 10 Pro (M2101K6R, codename `sweet`, PixelOS Android 16)
-- **PicoClaw version**: v0.2.4
+- **PicoClaw version**: v0.2.6
 - **PicoClaw upstream**: [github.com/sipeed/picoclaw](https://github.com/sipeed/picoclaw)
-- **Author**: [@carrilloapps](https://github.com/carrilloapps)
+- **Author**: [José Carrillo](https://carrillo.app) ([@carrilloapps](https://github.com/carrilloapps)), Senior Fullstack Developer & Tech Lead
 
 ---
 
@@ -103,21 +103,41 @@ ssh.exec_command(cmd, timeout=60)
 
 - **`~/picoclaw`** is a WRAPPER script (3 lines), not the binary. Binary is `~/picoclaw.bin`.
 - **TLS fix**: Wrapper sets `SSL_CERT_FILE` because Termux stores CA certs at `/data/data/com.termux/files/usr/etc/tls/cert.pem`.
-- **API key duplication**: config.json requires keys in BOTH `providers` AND `model_list` entries (v0.2.4 quirk).
+- **v0.2.6 config structure**: Auto-migration v1→v2 removes `providers` key from config.json. API keys live ONLY in `security.yml` under `model_list.<name>:0.api_keys`. The `model_list` in config.json keeps `api_base` but drops `api_key`.
+- **Google AI Studio**: Uses OpenAI-compatible endpoint at `https://generativelanguage.googleapis.com/v1beta/openai`. Provider type is `openai` (not `google` — PicoClaw rejects `google` provider). Models use `openai/gemini-*` format. Distinct from `antigravity/` which uses OAuth.
+- **security.yml is critical**: Without API keys in security.yml's `model_list`, gateway exits silently (writes PID, removes it, exit code 1, no error message).
+- **Gateway port**: v0.2.6 requires explicit `gateway.port` (e.g., 18790). Port 0 is rejected.
+- **ADB self-bridge**: Requires one-time setup from workstation (USB cable or wireless debugging). The `setprop`/`stop adbd`/`start adbd` commands require root — use `adb connect localhost:5555` from Termux only.
 - **Gateway**: Runs in `tmux` session `picoclaw`, long-polls Telegram. Health: `http://127.0.0.1:18790`.
 - **ADB self-bridge**: `localhost:5555`, provides uid=2000 shell access without root.
-- **Watchdog**: `~/bin/watchdog.sh` every minute via cron -- restarts sshd, gateway, ADB.
+- **Notifications**: `~/bin/notifications.sh` reads via ADB dumpsys (no Android listener permission needed).
+- **Watchdog**: `~/bin/watchdog.sh` every minute via cron -- restarts sshd, gateway, ADB, webhook-server, cloudflared.
 - **Boot**: `~/.termux/boot/start-picoclaw.sh` brings up everything on reboot.
+- **Backup monitor**: `~/bin/backup-monitor.sh` via termux-job-scheduler every 5 min -- restarts crond/sshd if dead.
+- **LLM failover**: `~/bin/auto-failover.sh` probes providers in priority order (Azure → Ollama → Antigravity → Google). Runs at boot + on 429/500/503 errors detected by watchdog.
+- **Webhook server v3**: Flask on `127.0.0.1:18791` in tmux session `webhook`. Defense-in-depth: honeypot (instant 444 + 4h ban), global/per-IP/per-route rate limits, 15/10s burst cap, 1 MiB body cap, CF Access JWT, Bearer + HMAC-SHA256, auto-ban after 10 auth fails in 5 min, handler subprocess timeout (30s), strict route-name regex, path-traversal guard, response hardening headers (HSTS, CSP, X-Frame, X-CTO, Permissions-Policy). Dynamic routes are read from disk per-request — no reload needed when webhook-manage.sh adds/removes them.
+- **Webhook URL prefix**: `/c/<name>` (short). Legacy `/custom/<name>` returns `308 Permanent Redirect` to `/c/<name>` — preserves method + body. Route names validated as `[a-z0-9][a-z0-9_-]{0,62}`.
+- **Cloudflared tunnel**: `pico.carrillo.app`, runs via `proot -b resolv.conf:/etc/resolv.conf` (Termux DNS SRV workaround). Managed by `~/bin/cloudflare-tool.sh`.
+- **Dynamic webhooks**: `~/bin/webhook-manage.sh` gives the agent full CRUD: create-route, create-form, update-html, update-handler, rename, clone, methods, auth, stats, clear-data, remove. The contact form at `/c/contact` is a DEMO — the user can delete/rename/modify it from chat at any time.
+- **Universal form handler**: `~/bin/form-handler.sh` (copied into every form dir) writes to JSONL, indexes in RAG (`doc_id=form:<name>:<ts>`), fires `termux-notification`, and sends a Telegram message to the first allowed owner.
+- **Log rotation**: `~/bin/log-rotate.sh` hourly (`15 * * * *`). Glob-discovers every `.log/.out/.err/.jsonl` under `$HOME`, `$PREFIX/tmp`, `~/.npm/_logs`, `~/.cache`. Caps: 2MB/5000 lines for logs, 5MB/10000 for JSONL. Purges npm/pip/apt caches + old media/backups/snapshots daily at 03:15.
 
 ### Providers (fallback chain)
 
-Azure GPT-4o --> Ollama Cloud --> Groq --> Antigravity (Google OAuth, last resort)
+Azure GPT-4o --> Ollama Cloud (gpt-oss:120b) --> Antigravity (OAuth) --> Google AI Studio (Gemini)
+
+Failover is automated via `~/bin/auto-failover.sh`:
+- Runs at boot (in start-picoclaw.sh) to pick healthy provider before gateway starts
+- Watchdog monitors gateway.log for 429/500/503 errors, triggers failover after 2+ errors with 5min cooldown
+- Probes each provider with real chat completion request (HTTP 200 = healthy)
+- Updates config.json default model_name and restarts gateway in tmux
+- Sends Android push notification on provider switch
 
 ### Voice Pipeline
 
 - **STT**: `~/bin/transcribe.sh` (Azure Whisper --> Groq Whisper cascade)
 - **TTS**: `~/bin/tts-reply.sh` (Azure TTS --> Edge TTS, 6 voices)
-- Built-in transcription is broken in v0.2.4. Scripts work around it via `exec` tool.
+- Built-in transcription is broken in v0.2.4/v0.2.6. Scripts work around it via `exec` tool.
 
 ### Enabled Tools (19)
 
@@ -135,7 +155,7 @@ Azure GPT-4o --> Ollama Cloud --> Groq --> Antigravity (Google OAuth, last resor
 ~/
 |-- picoclaw              # Wrapper script (sets SSL_CERT_FILE, execs binary)
 |-- picoclaw.bin          # Go binary (25.7 MB, aarch64)
-|-- bin/                  # 16 device scripts (transcribe, tts, adb, ui, media, watchdog, scrape, model switch)
+|-- bin/                  # 20 device scripts (transcribe, tts, adb, ui, media, watchdog, notifications, failover, scrape, model switch)
 |-- media/                # Captured photos, audio, screenshots (temp, cleaned hourly)
 |-- .picoclaw/
 |   |-- config.json       # Main config (providers, models, tools, channels)
@@ -157,7 +177,7 @@ Azure GPT-4o --> Ollama Cloud --> Groq --> Antigravity (Google OAuth, last resor
 D:\Desarrollo\AI\PicoClaw\
 |-- assets/               # 4 device photos and screenshots
 |-- config/               # 3 config templates (sanitized)
-|-- docs/                 # 8 step-by-step guides
+|-- docs/                 # 9 step-by-step guides (00-09)
 |-- scripts/              # 11 Python scripts + README (12 files)
 |-- utils/                # 21 device-side scripts + AGENT.md + README (23 files)
 |-- .env                  # Secrets (git-ignored)
@@ -178,11 +198,20 @@ D:\Desarrollo\AI\PicoClaw\
 | ----- | --- |
 | `x509: certificate signed by unknown authority` | Wrapper script or prepend `SSL_CERT_FILE=...` |
 | `api_key or api_base is required` | Add to BOTH `providers` AND `model_list` |
+| Gateway exits silently (writes PID then removes it) | Add API keys to `security.yml` `model_list` section (v0.2.6) |
+| `invalid gateway port: 0` | Set `gateway.port` to 18790 (v0.2.6 rejects port 0) |
+| Config auto-migration wipes security.yml | v0.2.6 migrates v1→v2 and empties `model_list` API keys in security.yml |
 | `exec is restricted to internal channels` | Set `tools.exec.allow_remote: true` |
+| `aria2c` package not found | Package name is `aria2` in Termux (not `aria2c`) |
 | Voice not transcribing | Deploy `transcribe.sh`, keys in `~/.picoclaw_keys`, instructions in AGENT.md |
 | Stale session context | `make clean-sessions` or use `-s "cli:fresh"` |
 | Windows encoding errors | `PYTHONIOENCODING=utf-8` + `sys.stdout.buffer.write()` |
 | `$@` eaten in heredocs | Use SFTP with `\x24@` hex escape |
+| Webhook `HTTP 444` / silent close | Request path hit honeypot (.env/.git/wp-*/actuator/…) → IP banned 4h |
+| Webhook `HTTP 413` | Body > 1 MiB → raise `WEBHOOK_MAX_BODY` |
+| Webhook `HTTP 403` on known-good IP | Auto-ban after 10 auth failures in 5 min → wait `WEBHOOK_BAN_MINUTES` or restart webhook |
+| Webhook `HTTP 405` | Method not in `meta.methods` → `webhook-manage.sh methods <name> GET,POST` |
+| Client still hits `/custom/<name>` | `308 Permanent Redirect` to `/c/<name>` — update client or let redirect chain resolve |
 
 ---
 
@@ -190,7 +219,8 @@ D:\Desarrollo\AI\PicoClaw\
 
 For detailed guides, see [`docs/`](docs/):
 
-1. [Hardware Setup](docs/01-hardware-setup.md) -- Device requirements, Termux, SSH
+0. [Termux & SSH Setup](docs/00-termux-ssh-setup.md) -- Termux install, SSH, user/IP, connect
+1. [Hardware Setup](docs/01-hardware-setup.md) -- Device requirements, Termux apps, ADB
 2. [PicoClaw Installation](docs/02-picoclaw-installation.md) -- Binary, TLS fix, config
 3. [Providers Setup](docs/03-providers-setup.md) -- Azure, Ollama, Groq, Antigravity
 4. [Telegram Integration](docs/04-telegram-integration.md) -- Bot, voice, streaming
@@ -198,6 +228,8 @@ For detailed guides, see [`docs/`](docs/):
 6. [Resilience](docs/06-resilience.md) -- Boot, watchdog, verification
 7. [Skills and MCP](docs/07-skills-and-mcp.md) -- Skills, 4 MCP servers
 8. [Advanced Features](docs/08-advanced-features.md) -- Scraping, knowledge base, cron
+9. [Remote Devices](docs/09-remote-devices.md) -- USB OTG control
+10. [Complete Setup Guide](docs/10-complete-setup-guide.md) -- End-to-end from zero
 
 ---
 

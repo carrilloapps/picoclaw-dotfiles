@@ -156,42 +156,76 @@ Then continue to [02 — PicoClaw Installation](02-picoclaw-installation.md).
 
 ## ADB Setup (Required for Full Device Control)
 
-ADB gives PicoClaw elevated Android shell access (uid=2000) for UI automation, screenshots, app control, and permissions grants. Initial setup requires a USB cable; after that, everything runs wirelessly over loopback.
+ADB gives PicoClaw elevated Android shell access (uid=2000) for UI automation, screenshots, app control, and permissions grants. Initial setup is one-time from your workstation; after that, the device self-connects via loopback.
 
 ### On the Phone (One Time)
 
-1. **Settings → About Phone** — tap "Build number" 7 times to enable Developer Options.
-2. **Settings → System → Developer Options** — enable:
+1. **Settings > About Phone** — tap "Build number" 7 times to enable Developer Options.
+2. **Settings > System > Developer Options** — enable:
    - **USB Debugging**
    - **Wireless Debugging** (Android 11+)
-3. Connect the phone via USB cable to your computer.
 
 ### On the Computer
 
-Install ADB:
+Install ADB if not already present:
 
 ```bash
-# Windows
+# Windows (Android SDK or scoop)
 scoop install adb
 # macOS
 brew install android-platform-tools
 # Linux
 sudo apt install adb
-# Termux (on the device itself)
+# Termux (on the device itself — already done by install.sh)
 pkg install android-tools
 ```
 
-Verify and grant permissions:
+### Option A: Wireless Debugging (No USB Cable)
+
+This method uses Android 11+'s wireless debugging feature — no USB cable needed.
+
+**Step 1**: On the phone, go to **Settings > Developer Options > Wireless Debugging** and tap **"Pair device with pairing code"**. Note the **6-digit code** and the **IP:port** shown.
+
+**Step 2**: On your workstation:
 
 ```bash
-adb devices              # Phone should appear — accept the prompt on screen
-bash utils/grant-permissions.sh   # Grant 44 runtime permissions + 17 appops
-adb tcpip 5555           # Enable wireless ADB (so USB cable can be unplugged)
+# Pair with the device (use the code and port from the phone screen)
+adb pair 192.168.1.101:42383 481272
+
+# Find the debugging port: go back to the Wireless Debugging screen
+# on the phone — it shows "IP address & port" (different from the pairing port)
+adb connect 192.168.1.101:41777
 ```
 
-### PicoClaw's ADB Self-Bridge
+**Step 3**: Grant permissions and enable TCP 5555:
 
-After first setup, PicoClaw connects to itself via `adb connect localhost:5555` (loopback — no USB or network exposure). The boot script re-enables this on every reboot. The watchdog reconnects it if it drops. No USB cable required after initial setup.
+```bash
+bash utils/grant-permissions.sh    # 44 permissions + 17 appops + TCP 5555
+```
+
+**Step 4**: On the phone, accept the **"Allow USB debugging?"** dialog that appears (check "Always allow from this computer").
+
+**Step 5**: Set up the self-bridge from Termux (via SSH):
+
+```bash
+# From your workstation (via SSH)
+python scripts/connect.py "adb connect localhost:5555"
+```
+
+### Option B: USB Cable
+
+**Step 1**: Connect the phone via USB cable to your computer.
+
+```bash
+adb devices                        # Phone should appear — accept prompt on screen
+bash utils/grant-permissions.sh    # 44 permissions + 17 appops + TCP 5555
+```
+
+**Step 2**: Unplug the USB cable. ADB TCP is now enabled on port 5555.
+
+### After Setup: Self-Bridge
+
+Once ADB TCP port 5555 is active (via either option), PicoClaw connects to itself via `adb connect localhost:5555` (loopback — no USB or network exposure). The boot script re-enables this on every reboot. The watchdog reconnects it if it drops. No USB cable or wireless debugging required after initial setup.
 
 ```mermaid
 sequenceDiagram
@@ -199,13 +233,13 @@ sequenceDiagram
     participant PHONE as Android Phone
     participant ADB as ADB Daemon (adbd)
 
-    Note over HOST,PHONE: One-time USB setup
-    HOST->>PHONE: adb devices (USB)
+    Note over HOST,PHONE: One-time setup (USB or wireless debugging)
+    HOST->>PHONE: adb pair / adb connect (wireless)<br/>or adb devices (USB)
     PHONE-->>HOST: Authorize prompt shown
     HOST->>PHONE: bash utils/grant-permissions.sh
-    HOST->>PHONE: adb tcpip 5555
+    Note over HOST,PHONE: Grants 44 permissions + enables TCP 5555
 
-    Note over PHONE,ADB: After setup — loopback only, no USB
+    Note over PHONE,ADB: After setup — loopback only, no cable needed
     PHONE->>ADB: adb connect localhost:5555
     ADB-->>PHONE: connected to localhost:5555
     Note over PHONE,ADB: Boot script repeats this on every reboot
@@ -247,9 +281,9 @@ Remote management is completely optional — the phone runs autonomously after `
 ---
 
 <p align="center">
-  
+  <a href="00-termux-ssh-setup.md">&larr; Termux & SSH Setup</a>
   &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="../README.md">📋 README</a>
+  <a href="../README.md">README</a>
   &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="02-picoclaw-installation.md">PicoClaw Installation →</a>
+  <a href="02-picoclaw-installation.md">PicoClaw Installation &rarr;</a>
 </p>
