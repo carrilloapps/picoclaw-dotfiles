@@ -95,16 +95,19 @@ case "$CHANNEL" in
         case "$ACTION" in
             add-user)
                 USER_ID="${3:?Usage: channels-tool.sh telegram add-user <id>}"
-                set_json '.channels.telegram.allow_from' "(.channels.telegram.allow_from // []) + [$USER_ID | tonumber]"
-                # jq doesn't support that form directly; do it in Python for safety
+                snapshot_config
                 python3 -c "
 import json
 with open('$CONFIG') as f: c = json.load(f)
-allow = c['channels']['telegram'].setdefault('allow_from', [])
+allow = c['channels'].setdefault('telegram', {}).setdefault('allow_from', [])
 uid = int('$USER_ID')
-if uid not in allow: allow.append(uid)
-with open('$CONFIG', 'w') as f: json.dump(c, f, indent=2)
-print(f'Added user $USER_ID to telegram.allow_from')
+if uid in allow:
+    print(f'User $USER_ID already authorized (no change)')
+else:
+    allow.append(uid)
+    c['channels']['telegram']['allow_from'] = allow
+    with open('$CONFIG', 'w') as f: json.dump(c, f, indent=2)
+    print(f'Added user $USER_ID to telegram.allow_from')
 "
                 reload_gateway
                 ;;
@@ -113,11 +116,32 @@ print(f'Added user $USER_ID to telegram.allow_from')
                 python3 -c "
 import json
 with open('$CONFIG') as f: c = json.load(f)
-allow = c['channels']['telegram'].get('allow_from', [])
+allow = c['channels'].get('telegram', {}).get('allow_from', [])
 uid = int('$USER_ID')
-if uid in allow: allow.remove(uid)
+before = len(allow)
+allow = [x for x in allow if x != uid]   # strip ALL occurrences
+c['channels']['telegram']['allow_from'] = allow
 with open('$CONFIG', 'w') as f: json.dump(c, f, indent=2)
-print(f'Removed user $USER_ID from telegram.allow_from')
+removed = before - len(allow)
+print(f'Removed user $USER_ID ({removed} occurrence(s))' if removed else f'User $USER_ID was not in allow_from')
+"
+                reload_gateway
+                ;;
+            dedupe-users)
+                # Collapse duplicates in allow_from, preserve first-seen order
+                snapshot_config
+                python3 -c "
+import json
+with open('$CONFIG') as f: c = json.load(f)
+allow = c['channels'].get('telegram', {}).get('allow_from', [])
+seen, deduped = set(), []
+for uid in allow:
+    if uid not in seen:
+        seen.add(uid); deduped.append(uid)
+removed = len(allow) - len(deduped)
+c['channels']['telegram']['allow_from'] = deduped
+with open('$CONFIG', 'w') as f: json.dump(c, f, indent=2)
+print(f'Deduplicated {removed} duplicate entries; final list: {deduped}')
 "
                 reload_gateway
                 ;;
@@ -165,7 +189,7 @@ print('Telegram disabled')
                 jq '.channels.telegram' "$CONFIG"
                 ;;
             *)
-                echo "Telegram actions: add-user <id> | remove-user <id> | list-users | set-token <t> | set-owner <id> | enable | disable | status"
+                echo "Telegram actions: add-user <id> | remove-user <id> | dedupe-users | list-users | set-token <t> | set-owner <id> | enable | disable | status"
                 ;;
         esac
         ;;

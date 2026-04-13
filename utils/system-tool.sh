@@ -267,7 +267,16 @@ case "$CMD" in
         SVC="${SUBCMD:?}"
         case "$SVC" in
             gateway) tmux new-session -d -s picoclaw "SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem $HOME_DIR/picoclaw.bin gateway > $HOME_DIR/.picoclaw/gateway.log 2>&1" ;;
-            webhook) tmux new-session -d -s webhook "python3 $HOME_DIR/bin/webhook-server.py > $HOME_DIR/webhook-server.log 2>&1" ;;
+            webhook)
+                # Launch via webhook-start.sh so .picoclaw_keys is sourced
+                # (WEBHOOK_TOKEN, WEBHOOK_HMAC_SECRET, GITHUB_WEBHOOK_SECRET, CF_ACCESS_*).
+                # Fall back to direct launch if the wrapper isn't present.
+                if [ -x "$HOME_DIR/bin/webhook-start.sh" ]; then
+                    tmux new-session -d -s webhook "$HOME_DIR/bin/webhook-start.sh > $HOME_DIR/webhook-server.log 2>&1"
+                else
+                    tmux new-session -d -s webhook "python3 $HOME_DIR/bin/webhook-server.py > $HOME_DIR/webhook-server.log 2>&1"
+                fi
+                ;;
             cloudflared|cf) "$HOME_DIR/bin/cloudflare-tool.sh" daemon ;;
             sshd) sshd ;;
             crond) crond ;;

@@ -100,16 +100,49 @@ After **10 authentication failures (401/403) in 5 minutes** from the same IP, th
 
 ### Per-endpoint enforcement matrix
 
-| Endpoint | Rate | Allowlist | CF Access | Bearer | HMAC / Token | Body cap | Method check |
-|----------|:---:|:---------:|:---------:|:------:|:------------:|:--------:|:-----:|
-| `GET /health` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| `GET /metrics` | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| `POST /notify` | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
-| `POST /hook/<name>` | ✓ | ✓ | ✓ | ✓ | ✓ (`WEBHOOK_HMAC_SECRET`) | ✓ | ✓ |
-| `POST /hook/github/<event>` | ✓ | ✓ | ✓ | ✗ | ✓ (`X-Hub-Signature-256`) | ✓ | ✓ |
-| `POST /hook/gitlab/<event>` | ✓ | ✓ | ✓ | ✗ | token (`X-Gitlab-Token`) | ✓ | ✓ |
-| `* /c/<name>` (user-defined) | ✓ | ✓ | ✓ | ✓ (meta.auth_required) | per-handler | ✓ | ✓ (meta.methods) |
-| `* /custom/<name>` | — | — | — | — | — | — | **308 redirect → `/c/<name>`** |
+| Endpoint | Visibility | Rate | Allowlist | CF Access | Bearer | HMAC / Token | Body cap | Method check |
+|----------|:---:|:---:|:---------:|:---------:|:------:|:------------:|:--------:|:-----:|
+| `GET /` | **public, minimal** (`{"status":"ok"}`) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `GET /health` | **public, minimal** (`{"status":"ok"}`) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `GET /info` | authenticated | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ |
+| `GET /metrics` | authenticated | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ |
+| `GET /c` (list) | authenticated | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ |
+| `POST /notify` | authenticated | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| `POST /hook/<name>` | authenticated | ✓ | ✓ | ✓ | ✓ | ✓ (`WEBHOOK_HMAC_SECRET`) | ✓ | ✓ |
+| `POST /hook/github/<event>` | authenticated | ✓ | ✓ | ✓ | ✗ | ✓ (`X-Hub-Signature-256`) | ✓ | ✓ |
+| `POST /hook/gitlab/<event>` | authenticated | ✓ | ✓ | ✓ | ✗ | token (`X-Gitlab-Token`) | ✓ | ✓ |
+| `* /c/<name>` (user-defined) | per-meta | ✓ | ✓ | ✓ | ✓ (meta.auth_required) | per-handler | ✓ | ✓ (meta.methods) |
+| `* /custom/<name>` | — | — | — | — | — | — | — | **308 redirect → `/c/<name>`** |
+
+**Why the extra `/info` endpoint.** Anything that reveals the server's version, listen port, rate caps, which security layers are enabled, or the list of registered endpoints is reconnaissance material. On the old `/` endpoint all of that was public — a scanner could adapt its attack to the exact rate window, exact body cap, and skip layers that were obviously disabled. Now a scanner hitting `/` sees only `{"status":"ok"}` and cannot tell this apart from any other health endpoint. The operator can still read the full state over the tunnel — but has to present a Bearer token to do it.
+
+### Two bearer-check modes (`check_bearer` vs `require_bearer`)
+
+The server ships with two helpers:
+
+| Helper | When `WEBHOOK_TOKEN` is unset | When a token **is** set |
+|--------|-------------------------------|-------------------------|
+| `check_bearer()` — *soft* | returns `True` (open — dev-mode behavior) | returns `hmac.compare_digest(auth, expected)` |
+| `require_bearer()` — *fail-closed* | returns `False` → endpoint replies `401` | returns `hmac.compare_digest(auth, expected)` |
+
+**Operator endpoints (`/info`, `/metrics`, `/c` list)** use `require_bearer()`. A deployment with no `WEBHOOK_TOKEN` configured cannot accidentally leak server internals — those endpoints stay closed.
+
+**Webhook ingest endpoints (`/notify`, `/hook/*`, `/c/<name>`)** use `check_bearer()`. This preserves the common dev-mode workflow ("spin it up locally, no token yet, hit it to test") without leaking reconnaissance data — and still enforces the token strictly when one is set.
+
+### Launch wrapper is required for the token to load
+
+`webhook-server.py` reads its secrets (`WEBHOOK_TOKEN`, `WEBHOOK_HMAC_SECRET`, `GITHUB_WEBHOOK_SECRET`, `CF_ACCESS_*`) from the process environment. The server does **not** source `~/.picoclaw_keys` itself; a tiny wrapper does:
+
+```bash
+# ~/bin/webhook-start.sh
+#!/data/data/com.termux/files/usr/bin/bash
+set -a
+. /data/data/com.termux/files/home/.picoclaw_keys
+set +a
+exec python3 /data/data/com.termux/files/home/bin/webhook-server.py
+```
+
+`system-tool.sh start webhook` uses this wrapper when present. Starting the server directly with `python3 webhook-server.py` will leave `WEBHOOK_TOKEN` unset → operator endpoints return `401` by design.
 
 ---
 
@@ -242,9 +275,16 @@ The watchdog restarts any dropped service within 60 seconds.
 ### Phase 5 — Verify
 
 ```bash
-# 1. Public /health (no auth required)
+# 1. Public /health (no auth required, minimal body)
 curl https://pico.yourdomain.com/health
-# → {"status":"ok","uptime":"...","metrics":{...}}
+# → {"status":"ok"}
+
+# 1b. Detailed /info (authenticated) — version, limits, metrics
+curl -H "Authorization: Bearer $WEBHOOK_TOKEN" https://pico.yourdomain.com/info
+# → {"service":"picoclaw-webhook-server","version":"3.0","limits":{...},...}
+
+# 1c. Prometheus /metrics (authenticated)
+curl -H "Authorization: Bearer $WEBHOOK_TOKEN" https://pico.yourdomain.com/metrics
 
 # 2. Public /notify WITHOUT bearer (expect 401)
 curl -X POST https://pico.yourdomain.com/notify \
@@ -316,7 +356,7 @@ Now the webhook also verifies the `Cf-Access-Jwt-Assertion` header on every requ
 
 ### Uptime monitoring (UptimeRobot, Healthchecks.io)
 
-Configure a monitor hitting `GET /health` — it's public and returns 200 when the gateway + webhook are alive. Agent calls are counted in `/metrics` (Prometheus format) for Grafana integration.
+Configure a monitor hitting `GET /health`. It's public, returns `200 {"status":"ok"}` when the server is up, and reveals nothing else — safe to expose to any external probe. For internal dashboards that need counters, point Prometheus at `/metrics` with `Authorization: Bearer $WEBHOOK_TOKEN` — that endpoint is gated.
 
 ---
 
@@ -417,14 +457,29 @@ All requests are logged as JSON-Lines at `~/webhook-audit.log`:
 ### Metrics
 
 ```bash
-curl https://pico.yourdomain.com/metrics
+curl -H "Authorization: Bearer $WEBHOOK_TOKEN" https://pico.yourdomain.com/metrics
 # webhook_requests_total 42
 # webhook_agent_calls 18
-# webhook_rate_limited 0
+# webhook_rate_ip_rate 0
 # webhook_agent_timeouts 0
+# webhook_honeypot_hits 7
+# webhook_auto_banned 1
+# webhook_banned_ips 1
 ```
 
-Scrape this from Prometheus for dashboards.
+Prometheus scrape config:
+
+```yaml
+scrape_configs:
+  - job_name: picoclaw-webhook
+    metrics_path: /metrics
+    scheme: https
+    authorization:
+      type: Bearer
+      credentials: <WEBHOOK_TOKEN>
+    static_configs:
+      - targets: [pico.yourdomain.com]
+```
 
 ### Key storage
 
@@ -489,15 +544,20 @@ Scrape this from Prometheus for dashboards.
 ~/bin/cloudflare-tool.sh url-set https://pico.yourdomain.com
 ~/bin/cloudflare-tool.sh daemon
 
-# === Public endpoints ===
-GET  /health                   (public)
-GET  /metrics                  (public, Prometheus)
-POST /notify                   (Bearer)
-POST /hook/<name>              (Bearer + optional HMAC)
-POST /hook/github/<event>      (HMAC X-Hub-Signature-256)
-POST /hook/gitlab/<event>      (X-Gitlab-Token)
-*    /c/<name>                 (user-defined; per-route auth + method list)
-*    /custom/<name>            (legacy; 308 redirects to /c/<name>)
+# === Public endpoints (minimal fingerprint) ===
+GET  /                         {"status":"ok"}  (public — no version/port/limits)
+GET  /health                   {"status":"ok"}  (public — no metrics)
+
+# === Authenticated endpoints (Bearer required) ===
+GET  /info                     Full operational state: version, limits, security flags, metrics
+GET  /metrics                  Prometheus format (bearer-gated, not public)
+GET  /c                        List of custom routes
+POST /notify                   Free-form text → agent
+POST /hook/<name>              Generic hook (Bearer + optional HMAC)
+POST /hook/github/<event>      GitHub HMAC (X-Hub-Signature-256)
+POST /hook/gitlab/<event>      GitLab token (X-Gitlab-Token)
+*    /c/<name>                 User-defined; per-route auth + method list
+*    /custom/<name>            Legacy (308 redirect to /c/<name>)
 
 # === Diagnostics ===
 ~/bin/system-tool.sh services  # service status

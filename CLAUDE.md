@@ -212,6 +212,9 @@ D:\Desarrollo\AI\PicoClaw\
 | Webhook `HTTP 403` on known-good IP | Auto-ban after 10 auth failures in 5 min → wait `WEBHOOK_BAN_MINUTES` or restart webhook |
 | Webhook `HTTP 405` | Method not in `meta.methods` → `webhook-manage.sh methods <name> GET,POST` |
 | Client still hits `/custom/<name>` | `308 Permanent Redirect` to `/c/<name>` — update client or let redirect chain resolve |
+| Operator endpoints (`/info`, `/metrics`, `/c`) return `401` even on LAN | `WEBHOOK_TOKEN` not loaded into server process. Must launch via `~/bin/webhook-start.sh` (sources `.picoclaw_keys` with `set -a`); `python3 webhook-server.py` direct → token unset → fail-closed 401 |
+| `/info` returns fingerprintable data | Only on auth. Public `/` and `/health` return `{"status":"ok"}` only |
+| Telegram `allow_from` accumulates duplicates | **Pre-`add-user` fix** (see git history). Current `channels-tool.sh` is idempotent; run `telegram dedupe-users` to clean legacy dupes |
 
 ---
 

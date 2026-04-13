@@ -23,12 +23,23 @@
 #   14. Hardening response headers  X-Content-Type-Options, Referrer-Policy, ...
 #
 # URL shape:
+#   /                  public, minimal ({"status":"ok"}) — no fingerprinting
+#   /health            public, minimal ({"status":"ok"})
+#   /info              bearer-gated, fail-closed; full operational state
+#   /metrics           bearer-gated, fail-closed; prometheus dump
 #   /c/<name>          user-defined routes/forms (short prefix, /custom/ is deprecated alias)
+#   /c (list)          bearer-gated, fail-closed; list of custom routes
 #   /hook/<name>       agent-dispatched generic webhook (Bearer + HMAC)
 #   /hook/github/<ev>  GitHub with X-Hub-Signature-256
 #   /hook/gitlab/<ev>  GitLab with X-Gitlab-Token
 #   /notify            free-form text → agent
-#   /health /metrics   monitoring
+#
+# Auth modes:
+#   check_bearer()   — soft: returns True when WEBHOOK_TOKEN is unset (dev mode).
+#                      Used by ingest endpoints (/notify, /hook/*, /c/<name>).
+#   require_bearer() — fail-closed: returns False when WEBHOOK_TOKEN is unset.
+#                      Used by operator endpoints (/info, /metrics, /c list) so
+#                      a token-less deployment cannot leak server internals.
 #
 # Environment tuning:
 #   PORT=18791
@@ -238,8 +249,20 @@ def check_ip_allowlist():
 
 
 def check_bearer():
+    """Soft bearer: skipped if no token is configured (dev mode)."""
     if not TOKEN:
         return True
+    auth = request.headers.get('Authorization', '')
+    return hmac.compare_digest(auth, f'Bearer {TOKEN}')
+
+
+def require_bearer():
+    """Strict bearer: ALWAYS requires a match, even if TOKEN is unset.
+    Used for operator-only endpoints that expose server internals
+    (/info, /metrics, /c list). Fails closed: no token configured
+    means the endpoint is disabled."""
+    if not TOKEN:
+        return False
     auth = request.headers.get('Authorization', '')
     return hmac.compare_digest(auth, f'Bearer {TOKEN}')
 
@@ -378,24 +401,75 @@ def _429(e):
 
 
 # ----- Endpoints -------------------------------------------------------------
+# Public endpoints return the absolute minimum: just enough for a load balancer
+# or uptime probe to confirm the service is alive. Detailed operational state
+# (rate caps, security flags, version, port, metrics, route list) only comes
+# back on authenticated `/info`, `/metrics` and `/c` endpoints.
+
 @app.route('/health')
 def health():
-    return jsonify({
-        'status': 'ok',
-        'ts': datetime.now(timezone.utc).isoformat(),
-        'metrics': dict(metrics),
-        'banned_ips': len(banned),
-    })
+    # Public, no auth. Intentionally minimal — no metrics, no counts, no version,
+    # so scanners and the Cloudflare edge can't fingerprint the server.
+    return jsonify({'status': 'ok'})
 
 
 @app.route('/metrics')
 def metrics_endpoint():
+    # Prometheus-format; bearer-gated (fails closed if no WEBHOOK_TOKEN set).
+    if not require_bearer():
+        audit('denied_metrics')
+        abort(401)
     lines = ['# HELP webhook_requests_total Total HTTP requests',
              '# TYPE webhook_requests_total counter']
     for k, v in metrics.items():
         lines.append(f'webhook_{k} {v}')
     lines.append(f'webhook_banned_ips {len(banned)}')
     return '\n'.join(lines) + '\n', 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+
+@app.route('/info')
+def info_endpoint():
+    """Full operational state — bearer-gated (fails closed if no
+    WEBHOOK_TOKEN set). Everything that used to be on / lives here:
+    port, limits, security flags, endpoint list, version."""
+    if not require_bearer():
+        audit('denied_info')
+        abort(401)
+    return jsonify({
+        'service': 'picoclaw-webhook-server',
+        'version': '3.0',
+        'prefix': '/c/',
+        'legacy_prefix': '/custom/ (308 redirect)',
+        'endpoints': [
+            '/health', '/metrics (auth)', '/info (auth)',
+            '/hook/<name>', '/hook/github/<event>', '/hook/gitlab/<event>',
+            '/notify',
+            '/c (list, auth)', '/c/<name> (user-defined)',
+        ],
+        'port': PORT,
+        'limits': {
+            'max_body_bytes': MAX_BODY,
+            'rate_per_ip_min': RATE_PER_IP,
+            'rate_per_route_min': RATE_PER_ROUTE,
+            'rate_global_min': RATE_GLOBAL,
+            'burst_per_ip_10s': BURST_PER_IP,
+            'handler_timeout_sec': HANDLER_TIMEOUT,
+            'ban_minutes': BAN_MINUTES,
+            'auth_fail_threshold': AUTH_FAIL_THRESHOLD,
+        },
+        'security': {
+            'bearer_auth': bool(TOKEN),
+            'hmac_verification': bool(HMAC_SECRET),
+            'github_hmac': bool(GITHUB_SECRET),
+            'gitlab_token': bool(GITLAB_TOKEN),
+            'cloudflare_access': bool(CF_ACCESS_AUD),
+            'ip_allowlist': bool(IP_ALLOWLIST),
+            'trust_proxy': TRUST_PROXY,
+            'honeypot': len(HONEYPOT_PATHS) + len(HONEYPOT_PREFIXES),
+        },
+        'metrics': dict(metrics),
+        'banned_ips': len(banned),
+    })
 
 
 @app.route('/hook/<name>', methods=['POST'])
@@ -597,7 +671,8 @@ def legacy_custom_route(name):
 def list_routes():
     r = pre_checks()
     if r is not None: return r
-    if not check_bearer():
+    if not require_bearer():
+        audit('denied_list_routes')
         abort(401)
     from pathlib import Path
     base = Path(HOME) / '.picoclaw' / 'webhooks'
@@ -619,39 +694,10 @@ def list_routes():
 
 @app.route('/')
 def index():
-    return jsonify({
-        'service': 'picoclaw-webhook-server',
-        'version': '3.0',
-        'prefix': '/c/',
-        'legacy_prefix': '/custom/ (301)',
-        'endpoints': [
-            '/health', '/metrics',
-            '/hook/<name>', '/hook/github/<event>', '/hook/gitlab/<event>',
-            '/notify',
-            '/c (list)', '/c/<name> (user-defined)',
-        ],
-        'port': PORT,
-        'limits': {
-            'max_body_bytes': MAX_BODY,
-            'rate_per_ip_min': RATE_PER_IP,
-            'rate_per_route_min': RATE_PER_ROUTE,
-            'rate_global_min': RATE_GLOBAL,
-            'burst_per_ip_10s': BURST_PER_IP,
-            'handler_timeout_sec': HANDLER_TIMEOUT,
-            'ban_minutes': BAN_MINUTES,
-            'auth_fail_threshold': AUTH_FAIL_THRESHOLD,
-        },
-        'security': {
-            'bearer_auth': bool(TOKEN),
-            'hmac_verification': bool(HMAC_SECRET),
-            'github_hmac': bool(GITHUB_SECRET),
-            'gitlab_token': bool(GITLAB_TOKEN),
-            'cloudflare_access': bool(CF_ACCESS_AUD),
-            'ip_allowlist': bool(IP_ALLOWLIST),
-            'trust_proxy': TRUST_PROXY,
-            'honeypot': len(HONEYPOT_PATHS) + len(HONEYPOT_PREFIXES),
-        },
-    })
+    # Public root: no fingerprintable information (no version, no port, no
+    # security flags, no limits, no endpoint list). An attacker who hits `/`
+    # learns only that there is an HTTP service — which they already knew.
+    return jsonify({'status': 'ok'})
 
 
 if __name__ == '__main__':

@@ -59,8 +59,9 @@ Every change auto-snapshots the config and reloads the gateway. No restart neede
 ### Telegram
 
 ```bash
-~/bin/channels-tool.sh telegram add-user 123456789     # Add to allow_from
-~/bin/channels-tool.sh telegram remove-user 123456789
+~/bin/channels-tool.sh telegram add-user 123456789     # Idempotent: no-op if already present
+~/bin/channels-tool.sh telegram remove-user 123456789  # Strips ALL occurrences (safe on pre-existing dupes)
+~/bin/channels-tool.sh telegram dedupe-users           # Collapse any duplicates (preserves order)
 ~/bin/channels-tool.sh telegram list-users             # JSON array
 ~/bin/channels-tool.sh telegram set-token <TOKEN>      # Update bot token
 ~/bin/channels-tool.sh telegram set-owner 123456789    # Replace allow_from with single user
@@ -68,6 +69,8 @@ Every change auto-snapshots the config and reloads the gateway. No restart neede
 ~/bin/channels-tool.sh telegram disable
 ~/bin/channels-tool.sh telegram status                 # Full config dump
 ```
+
+> **Idempotency note.** `add-user` on an ID that's already authorized prints `already authorized (no change)` and does not re-write the file. Safe to retry from chat if the agent loses confirmation state and re-fires the command. `remove-user` strips every copy of the ID even if the list drifted out of sync in an earlier bug.
 
 ### WhatsApp (native, Baileys-based)
 
